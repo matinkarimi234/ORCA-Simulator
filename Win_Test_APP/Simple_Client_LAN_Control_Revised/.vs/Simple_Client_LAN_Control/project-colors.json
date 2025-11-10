@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "ProjectMap": {
+    "d8d33415-c33a-433a-9570-a26796d3e72c": {
+      "ProjectGuid": "d8d33415-c33a-433a-9570-a26796d3e72c",
+      "DisplayName": "Simple_Client_LAN_Control",
+      "ColorIndex": 0
+    }
+  },
+  "NextColorIndex": 1
+}

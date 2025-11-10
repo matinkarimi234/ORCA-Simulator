@@ -1,0 +1,35 @@
+F:\GeoLab\X-Ultrasonic Velocity Meter\Software\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\bin\Debug\Farand_Chart_Lib_Ver3.dll
+F:\GeoLab\X-Ultrasonic Velocity Meter\Software\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\bin\Debug\Farand_Chart_Lib_Ver3.pdb
+F:\GeoLab\X-Ultrasonic Velocity Meter\Software\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.csprojResolveAssemblyReference.cache
+F:\GeoLab\X-Ultrasonic Velocity Meter\Software\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.Farand_Chart.resources
+F:\GeoLab\X-Ultrasonic Velocity Meter\Software\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.csproj.GenerateResource.Cache
+F:\GeoLab\X-Ultrasonic Velocity Meter\Software\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.dll
+F:\GeoLab\X-Ultrasonic Velocity Meter\Software\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.pdb
+F:\GeoLab\X-Ultrasonic Velocity Meter\Software\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.Properties.Resources.resources
+F:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\bin\Debug\Farand_Chart_Lib_Ver3.dll
+F:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\bin\Debug\Farand_Chart_Lib_Ver3.pdb
+F:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.Farand_Chart.resources
+F:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.Properties.Resources.resources
+F:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.csproj.GenerateResource.Cache
+F:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.dll
+F:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.pdb
+G:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\bin\Debug\Farand_Chart_Lib_Ver3.dll
+G:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\bin\Debug\Farand_Chart_Lib_Ver3.pdb
+G:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.csproj.AssemblyReference.cache
+G:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.Farand_Chart.resources
+G:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.Properties.Resources.resources
+G:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.csproj.GenerateResource.cache
+G:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.csproj.CoreCompileInputs.cache
+G:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.dll
+G:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.pdb
+F:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.csproj.AssemblyReference.cache
+F:\Projects\Software Components\Farand Chart Lib\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.csproj.CoreCompileInputs.cache
+C:\Projects\ORCA1\Artemis Tests\UART & ESP32\Test_App_C#\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\bin\Debug\Farand_Chart_Lib_Ver3.dll
+C:\Projects\ORCA1\Artemis Tests\UART & ESP32\Test_App_C#\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\bin\Debug\Farand_Chart_Lib_Ver3.pdb
+C:\Projects\ORCA1\Artemis Tests\UART & ESP32\Test_App_C#\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.csproj.AssemblyReference.cache
+C:\Projects\ORCA1\Artemis Tests\UART & ESP32\Test_App_C#\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.Farand_Chart.resources
+C:\Projects\ORCA1\Artemis Tests\UART & ESP32\Test_App_C#\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.Properties.Resources.resources
+C:\Projects\ORCA1\Artemis Tests\UART & ESP32\Test_App_C#\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.csproj.GenerateResource.cache
+C:\Projects\ORCA1\Artemis Tests\UART & ESP32\Test_App_C#\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.csproj.CoreCompileInputs.cache
+C:\Projects\ORCA1\Artemis Tests\UART & ESP32\Test_App_C#\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.dll
+C:\Projects\ORCA1\Artemis Tests\UART & ESP32\Test_App_C#\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\obj\Debug\Farand_Chart_Lib_Ver3.pdb
