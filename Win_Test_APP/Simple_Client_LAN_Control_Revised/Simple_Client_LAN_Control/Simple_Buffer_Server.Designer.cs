@@ -4,7 +4,7 @@ using System.Windows.Forms;
 
 namespace Simple_Client_LAN_Control
 {
-    partial class Simple_Client_LAN_Control
+    partial class Simple_Buffer_Server
     {
         private IContainer components = null;
         private System.Windows.Forms.Timer timerRxFlash;

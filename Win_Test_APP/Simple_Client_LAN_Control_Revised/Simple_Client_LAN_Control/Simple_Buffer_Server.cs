@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Drawing;
+using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,35 +10,35 @@ using System.Windows.Forms;
 
 namespace Simple_Client_LAN_Control
 {
-    public partial class Simple_Client_LAN_Control : UserControl, IDisposable
+    public partial class Simple_Buffer_Server : UserControl, IDisposable
     {
         // ===========================
         // PUBLIC PROPERTIES / EVENTS
         // ===========================
 
         [Browsable(true)]
-        [Category("LAN Client")]
-        [Description("Target Pi IP address (static IP).")]
-        public string IPAddress { get; set; } = "192.168.0.102";
+        [Category("LAN Server")]
+        [Description("Local IP to bind (use 0.0.0.0 for all).")]
+        public string BindAddress { get; set; } = "0.0.0.0";
 
         [Browsable(true)]
-        [Category("LAN Client")]
-        [Description("Target TCP port on Pi (5001 for 64B raw).")]
+        [Category("LAN Server")]
+        [Description("TCP port to listen on (5001 for 64B).")]
         public int Port { get; set; } = 5001;
 
         [Browsable(true)]
-        [Category("LAN Client")]
-        [Description("How many bytes we expect per received frame.")]
+        [Category("LAN Server")]
+        [Description("How many bytes per frame (fixed).")]
         public int RX_Byte_Count
         {
-            get => _rxByteCount;
+            get { return _rxByteCount; }
             set
             {
                 if (value <= 0) return;
                 _rxByteCount = value;
 
-                _rxBuffer = new byte[_rxByteCount];          // last full frame
-                _tempFrameCopy = new byte[_rxByteCount];      // temp copy for event firing
+                _rxBuffer = new byte[_rxByteCount];
+                _tempFrameCopy = new byte[_rxByteCount];
 
                 _assemblyBuf = new byte[Math.Max(4096, _rxByteCount * 4)];
                 _assemblyLen = 0;
@@ -45,7 +46,7 @@ namespace Simple_Client_LAN_Control
         }
 
         [Browsable(false)]
-        public bool IsConnected => _isConnected;
+        public bool IsConnected { get { return _isConnected; } }
 
         public event EventHandler Connected;
         public event EventHandler Disconnected;
@@ -61,11 +62,12 @@ namespace Simple_Client_LAN_Control
         // INTERNAL STATE
         // ===========================
 
+        private TcpListener _listener;
         private TcpClient _tcpClient;
         private NetworkStream _stream;
 
-        private CancellationTokenSource _mainCts;     // connect/reconnect loop lifetime
-        private CancellationTokenSource _sessionCts;  // per-connection session lifetime
+        private CancellationTokenSource _mainCts;     // accept loop lifetime
+        private CancellationTokenSource _sessionCts;  // per-connection lifetime
 
         private volatile bool _isConnected = false;
 
@@ -84,7 +86,7 @@ namespace Simple_Client_LAN_Control
         // rx flash state
         private bool _rxBlinkToggle = false;
 
-        public Simple_Client_LAN_Control()
+        public Simple_Buffer_Server()
         {
             InitializeComponent();
             SafeSetStatusImage(StatusState.Disconnected);
@@ -109,7 +111,13 @@ namespace Simple_Client_LAN_Control
         {
             if (_mainCts != null && !_mainCts.IsCancellationRequested) return;
             _mainCts = new CancellationTokenSource();
-            _ = RunConnectionLoopAsync(_mainCts.Token);
+
+            IPAddress ip;
+            if (!IPAddress.TryParse(BindAddress, out ip))
+                ip = IPAddress.Any;
+
+            _listener = new TcpListener(ip, Port);
+            _ = AcceptLoopAsync(_mainCts.Token);
         }
 
         public void Stop()
@@ -117,19 +125,17 @@ namespace Simple_Client_LAN_Control
             try { _mainCts?.Cancel(); } catch { }
 
             timerRxFlash?.Stop();
-
             _isConnected = false;
 
             CleanupSocket();
 
-            _sessionCts?.Dispose();
-            _sessionCts = null;
+            try { _listener?.Stop(); } catch { }
 
-            _mainCts?.Dispose();
-            _mainCts = null;
+            if (_sessionCts != null) { try { _sessionCts.Cancel(); } catch { } _sessionCts.Dispose(); _sessionCts = null; }
+            if (_mainCts != null) { _mainCts.Dispose(); _mainCts = null; }
         }
 
-        // enqueue frame to send
+        // enqueue a frame to send to the connected client
         public void Send(byte[] data)
         {
             if (data == null || data.Length == 0) return;
@@ -137,57 +143,51 @@ namespace Simple_Client_LAN_Control
         }
 
         // ===========================
-        // CONNECT / RECONNECT LOOP
+        // ACCEPT LOOP (SERVER)
         // ===========================
 
-        private async Task RunConnectionLoopAsync(CancellationToken token)
+        private async Task AcceptLoopAsync(CancellationToken token)
         {
-            int backoffMs = 500;
-            int backoffMaxMs = 5000;
-            var rnd = new Random();
+            try { _listener.Start(); }
+            catch (Exception ex)
+            {
+                // can't start listener; surface as disconnected
+                SafeOnDisconnectedUI();
+                return;
+            }
 
             while (!token.IsCancellationRequested)
             {
-                if (!_isConnected)
+                TcpClient client = null;
+                try
                 {
-                    bool ok = await TryConnectOnceAsync(token);
-                    if (!ok)
-                    {
-                        int waitMs = backoffMs + rnd.Next(0, 150);
-                        try { await Task.Delay(waitMs, token); } catch { }
-                        backoffMs = Math.Min(backoffMs * 2, backoffMaxMs);
-                        continue;
-                    }
-                    backoffMs = 500;
+                    client = await _listener.AcceptTcpClientAsync();
+                    client.NoDelay = true;
+
+                    // If a client is already connected, drop it in favor of the new one (optional policy)
+                    CleanupSocket();
+
+                    _tcpClient = client;
+                    _stream = _tcpClient.GetStream();
+                    _isConnected = true;
+                    _assemblyLen = 0;
+
+                    SafeSetStatusImage(StatusState.Connected);
+                    SafeFireConnected();
+
+                    if (_sessionCts != null) { try { _sessionCts.Cancel(); } catch { } _sessionCts.Dispose(); }
+                    _sessionCts = new CancellationTokenSource();
+
+                    _ = ReceiveLoopAsync(_sessionCts.Token);
+                    _ = SendLoopAsync(_sessionCts.Token);
                 }
-                try { await Task.Delay(200, token); } catch { }
+                catch (ObjectDisposedException) { break; }
+                catch (InvalidOperationException) { break; }
+                catch (Exception)
+                {
+                    try { await Task.Delay(200, token); } catch { }
+                }
             }
-        }
-
-        private async Task<bool> TryConnectOnceAsync(CancellationToken outerToken)
-        {
-            var client = new TcpClient { NoDelay = true };
-            try { await client.ConnectAsync(IPAddress, Port); }
-            catch { return false; }
-
-            _tcpClient = client;
-            _stream = _tcpClient.GetStream();
-            _isConnected = true;
-            _assemblyLen = 0;
-
-            SafeSetStatusImage(StatusState.Connected);
-            SafeFireConnected();
-
-            try { _sessionCts?.Cancel(); } catch { }
-            _sessionCts?.Dispose();
-            _sessionCts = new CancellationTokenSource();
-
-            // no heartbeat needed for 64B mode
-            // timerHeartbeat?.Start();
-
-            _ = ReceiveLoopAsync(_sessionCts.Token);
-            _ = SendLoopAsync(_sessionCts.Token);
-            return true;
         }
 
         // ===========================
@@ -240,7 +240,8 @@ namespace Simple_Client_LAN_Control
             {
                 while (!token.IsCancellationRequested && _isConnected)
                 {
-                    if (_txQueue.TryDequeue(out var frame))
+                    byte[] frame;
+                    if (_txQueue.TryDequeue(out frame))
                     {
                         try
                         {
@@ -296,11 +297,10 @@ namespace Simple_Client_LAN_Control
         private void HandleDisconnect()
         {
             if (!_isConnected) return;
-
             _isConnected = false;
+
             try { _sessionCts?.Cancel(); } catch { }
-            _sessionCts?.Dispose();
-            _sessionCts = null;
+            if (_sessionCts != null) { _sessionCts.Dispose(); _sessionCts = null; }
 
             CleanupSocket();
             SafeOnDisconnectedUI();
@@ -315,7 +315,6 @@ namespace Simple_Client_LAN_Control
             }
 
             timerRxFlash?.Stop();
-
             SafeSetStatusImage(StatusState.Disconnected);
             SafeFireDisconnected();
         }
@@ -361,38 +360,42 @@ namespace Simple_Client_LAN_Control
 
         private void SafeFireConnected()
         {
-            if (Connected == null) return;
+            var h = Connected;
+            if (h == null) return;
             try
             {
-                if (InvokeRequired) BeginInvoke((MethodInvoker)(() => Connected?.Invoke(this, EventArgs.Empty)));
-                else Connected?.Invoke(this, EventArgs.Empty);
+                if (InvokeRequired) BeginInvoke((MethodInvoker)(() => h(this, EventArgs.Empty)));
+                else h(this, EventArgs.Empty);
             }
             catch { }
         }
 
         private void SafeFireDisconnected()
         {
-            if (Disconnected == null) return;
+            var h = Disconnected;
+            if (h == null) return;
             try
             {
-                if (InvokeRequired) BeginInvoke((MethodInvoker)(() => Disconnected?.Invoke(this, EventArgs.Empty)));
-                else Disconnected?.Invoke(this, EventArgs.Empty);
+                if (InvokeRequired) BeginInvoke((MethodInvoker)(() => h(this, EventArgs.Empty)));
+                else h(this, EventArgs.Empty);
             }
             catch { }
         }
 
         private void SafeFireDataReceived(byte[] frameCopy)
         {
-            if (DataReceived == null || frameCopy == null) return;
+            var h = DataReceived;
+            if (h == null || frameCopy == null) return;
+
             var evtBytes = new byte[_rxByteCount];
             Buffer.BlockCopy(frameCopy, 0, evtBytes, 0, _rxByteCount);
 
             try
             {
                 if (InvokeRequired)
-                    BeginInvoke((MethodInvoker)(() => DataReceived?.Invoke(this, new DataReceivedEventArgs(evtBytes))));
+                    BeginInvoke((MethodInvoker)(() => h(this, new DataReceivedEventArgs(evtBytes))));
                 else
-                    DataReceived?.Invoke(this, new DataReceivedEventArgs(evtBytes));
+                    h(this, new DataReceivedEventArgs(evtBytes));
             }
             catch { }
         }
@@ -400,7 +403,7 @@ namespace Simple_Client_LAN_Control
 
     public class DataReceivedEventArgs : EventArgs
     {
-        public byte[] Data { get; }
+        public byte[] Data { get; private set; }
         public DataReceivedEventArgs(byte[] data) { Data = data; }
     }
 }

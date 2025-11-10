@@ -1,0 +1,19 @@
+serial:
+  port: "/dev/serial0"
+  baud: 115200
+  rtscts: false
+
+network:
+  buffer_server_ip: "192.168.0.200"  # PC IP (C# BufferServer)
+  buffer_server_port: 5001
+  file_server_ip: "0.0.0.0"
+  file_server_port: 5002
+
+paths:
+  incoming_dir: "/home/pi"
+
+timing:
+  status_period_ms: 100               # if you want periodic 64B pushes
+  tx_queue_max: 256
+  rx_queue_max: 256
+  uart_tx_gap_ms: 2                   # gentle pacing

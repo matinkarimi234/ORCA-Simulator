@@ -67,7 +67,7 @@
             Farand_Chart_Lib_Ver3.Farand_Chart.PointStyle pointStyle10 = new Farand_Chart_Lib_Ver3.Farand_Chart.PointStyle();
             Farand_Chart_Lib_Ver3.Farand_Chart.LineStyle lineStyle22 = new Farand_Chart_Lib_Ver3.Farand_Chart.LineStyle();
             this.farand_Chart1 = new Farand_Chart_Lib_Ver3.Farand_Chart();
-            this.esp = new Simple_Client_LAN_Control.Simple_Client_LAN_Control();
+            this.lan_server = new Simple_Client_LAN_Control.Simple_Buffer_Server();
             this.button_Send_Packet = new System.Windows.Forms.Button();
             this.button_Send_File = new System.Windows.Forms.Button();
             this.SuspendLayout();
@@ -310,15 +310,13 @@
             // 
             // esp
             // 
-            this.esp.BackColor = System.Drawing.Color.Transparent;
-            this.esp.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.esp.IPAddress = "192.168.0.200";
-            this.esp.Location = new System.Drawing.Point(12, 12);
-            this.esp.Name = "esp";
-            this.esp.Port = 5001;
-            this.esp.RX_Byte_Count = 1024;
-            this.esp.Size = new System.Drawing.Size(40, 38);
-            this.esp.TabIndex = 0;
+            this.lan_server.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lan_server.Location = new System.Drawing.Point(12, 12);
+            this.lan_server.Name = "lan_server";
+            this.lan_server.Port = 5001;
+            this.lan_server.RX_Byte_Count = 1024;
+            this.lan_server.Size = new System.Drawing.Size(40, 38);
+            this.lan_server.TabIndex = 0;
             // 
             // button_Send_Packet
             // 
@@ -348,7 +346,7 @@
             this.Controls.Add(this.button_Send_File);
             this.Controls.Add(this.button_Send_Packet);
             this.Controls.Add(this.farand_Chart1);
-            this.Controls.Add(this.esp);
+            this.Controls.Add(this.lan_server);
             this.Name = "Form1";
             this.Text = "Form1";
             this.ResumeLayout(false);
@@ -357,7 +355,7 @@
 
         #endregion
 
-        private Simple_Client_LAN_Control.Simple_Client_LAN_Control esp;
+        private Simple_Client_LAN_Control.Simple_Buffer_Server lan_server;
         private Farand_Chart_Lib_Ver3.Farand_Chart farand_Chart1;
         private System.Windows.Forms.Button button_Send_Packet;
         private System.Windows.Forms.Button button_Send_File;
