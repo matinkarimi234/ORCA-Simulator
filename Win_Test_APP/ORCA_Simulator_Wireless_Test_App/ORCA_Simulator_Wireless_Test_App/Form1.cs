@@ -11,6 +11,15 @@ namespace ORCA_Simulator_Wireless_Test_App
         const int RAW_SIZE = 64;
         const byte RAW_HEADER = 0xFB; // must match RPi
 
+        const int BATCH_SIZE = 8;
+        const int BATCH_COUNT = 128;
+
+        // periodic TX
+        private System.Threading.Timer _txTimer;
+        private int _txPeriodMs = 125;         // e.g., 40 Hz
+        private int _txCounter = 0;           // grows every tick
+        private volatile bool _txTickBusy = false; // avoid overlapping ticks
+
         // Optional: tiny counter demo
         int _counter = 0;
 
@@ -22,7 +31,7 @@ namespace ORCA_Simulator_Wireless_Test_App
             // Bind to all local interfaces; the RPi BufferClient will connect here
             lan_Server.BindAddress = "0.0.0.0";  // or a specific NIC IP
             lan_Server.Port = 5001;
-            lan_Server.RX_Byte_Count = RAW_SIZE;
+            lan_Server.RX_Byte_Count = BATCH_SIZE * BATCH_COUNT;
 
             // ---- hook events ----
             lan_Server.Connected += lan_Server_OnConnected;
@@ -31,6 +40,34 @@ namespace ORCA_Simulator_Wireless_Test_App
 
             // ---- start server ----
             lan_Server.Start();
+
+
+            // Start periodic TX (fires regardless; we’ll skip if not connected)
+            _txTimer = new System.Threading.Timer(TxTimerTick, null, _txPeriodMs, _txPeriodMs);
+        }
+
+        private void TxTimerTick(object state)
+        {
+            if (_txTickBusy) return;
+            _txTickBusy = true;
+            try
+            {
+                // Optional: you can track lanServer.IsConnected if you exposed it.
+                // If not exposed, just send; the control handles failures gracefully.
+
+                // Build payload (example puts a counter in bytes [1..4])
+                var payload = new byte[62];
+                payload[0] = (byte)((_txCounter >> 0) & 0xFF);
+                payload[1] = (byte)((_txCounter >> 8) & 0xFF);
+                payload[2] = (byte)((_txCounter >> 16) & 0xFF);
+                payload[3] = (byte)((_txCounter >> 24) & 0xFF);
+                _txCounter++;
+
+                var frame = BuildRaw64Frame(payload);
+                lan_Server.Send(frame); // non-blocking enqueue inside the control
+            }
+            catch { /* ignore one-shot errors */ }
+            finally { _txTickBusy = false; }
         }
 
         private void lan_Server_OnConnected(object sender, EventArgs e)
@@ -53,23 +90,25 @@ namespace ORCA_Simulator_Wireless_Test_App
         private void lan_Server_DataReceived(object sender, DataReceivedEventArgs e)
         {
             var raw = e.Data;
-            if (raw == null || raw.Length != RAW_SIZE) return;
-            if (!VerifyRaw64(raw)) return; // drop bad frames
+            if (raw == null || raw.Length != BATCH_COUNT * BATCH_SIZE) return;
 
-            // Example: echo back (non-blocking; the control has an internal send queue)
-            lan_Server.Send(raw);
+            bool ok = true;
 
-            // OPTIONAL: parse payload bytes [1..62]
-            // byte cmd = raw[1];
-            // ... update UI safely if you want:
-            //try
-            //{
-            //    if (InvokeRequired)
-            //        BeginInvoke((MethodInvoker)(() => labelLastRx.Text = $"RX: {BitConverter.ToString(raw, 0, 8)}"));
-            //    else
-            //        labelLastRx.Text = $"RX: {BitConverter.ToString(raw, 0, 8)}";
-            //}
-            //catch { }
+            for (int i = 0; i < BATCH_COUNT; i++)
+            {
+                int baseIndex = i * BATCH_SIZE;
+                if (!VerifyChecksumAndHeader(raw, baseIndex)) 
+                {
+                    ok = false; 
+                    break;
+                }
+
+                if (ok)
+                {
+                    Console.WriteLine("Bad frame dropped");
+                    return;
+                }
+            }
         }
 
         // -----------------------------------------------
@@ -94,17 +133,21 @@ namespace ORCA_Simulator_Wireless_Test_App
             return frame;
         }
 
-        private bool VerifyRaw64(byte[] frame)
+        private bool VerifyChecksumAndHeader(byte[] buf, int baseIndex)
         {
-            if (frame == null || frame.Length != RAW_SIZE) return false;
-            if (frame[0] != RAW_HEADER) return false;
+            if (buf[baseIndex] != RAW_HEADER) 
+                return false;
 
-            int sum = 0;
-            for (int i = 0; i < RAW_SIZE - 1; i++)
-                sum = (sum + frame[i]) & 0xFF;
+            byte sum = 0;
+            for (int i = 0; i < BATCH_SIZE - 1; i++) 
+            { 
+                sum += buf[baseIndex + i]; 
+            }
 
-            return (byte)sum == frame[RAW_SIZE - 1];
+            byte cs = buf[baseIndex + BATCH_SIZE - 1];
+            return (sum == cs);
         }
+
 
         // -----------------------------------------------
         // Example “Send command” (wire to a button)
@@ -153,9 +196,10 @@ namespace ORCA_Simulator_Wireless_Test_App
             }
         }
 
-        protected override void OnFormClosing(FormClosingEventArgs e)
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            // tidy shutdown
+            if (_txTimer != null) { _txTimer.Dispose(); _txTimer = null; }
             lan_Server.Stop();
             base.OnFormClosing(e);
         }

@@ -1,6 +1,8 @@
 # 64-byte RAW framing helpers
 RAW_SIZE = 64
 RAW_HEADER = 0xFB
+BATCH_SIZE   = 8
+BATCH_COUNT  = 128
 
 def build_raw64(payload62: bytes) -> bytes:
     if payload62 is None: payload62 = b""

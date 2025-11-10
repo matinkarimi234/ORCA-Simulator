@@ -1,6 +1,6 @@
 import socket, threading, time
 from typing import Optional
-from common.framing import RAW_SIZE, verify_raw64
+from common.framing import RAW_SIZE, verify_raw64, BATCH_SIZE, BATCH_COUNT
 
 class BufferClient:
     """
@@ -14,7 +14,7 @@ class BufferClient:
         self.server_port = int(server_port)
 
         self.Rx_Frame = bytearray(b"\x00" * RAW_SIZE)
-        self.Tx_Frame = bytearray(b"\x00" * RAW_SIZE)
+        self.Tx_Frame = bytearray(b"\x00" * BATCH_SIZE*BATCH_COUNT)
         self.is_connected = 0
 
         self._stop = threading.Event()
@@ -37,7 +37,7 @@ class BufferClient:
         if not s: return False
         try:
             with self._lock:
-                data = bytes(self.Tx_Frame[:RAW_SIZE])
+                data = bytes(self.Tx_Frame)
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             s.sendall(data)
             return True
@@ -79,7 +79,10 @@ class BufferClient:
                         del rx_buf[:RAW_SIZE]
                         if verify_raw64(frame):
                             with self._lock:
+                                print("[BUF-CLIENT] RX Received and OK")
                                 self.Rx_Frame[:] = frame
+                        else:
+                            print("[BUF-CLIENT] RX not verified!")
                     time.sleep(0.005)
 
             except Exception:

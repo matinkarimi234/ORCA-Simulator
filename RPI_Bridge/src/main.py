@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 import time, os, yaml, zlib
 from common.logging_setup import setup_logging
-from common.framing import RAW_SIZE, build_raw64, verify_raw64
+from common.framing import RAW_SIZE, build_raw64, verify_raw64, BATCH_SIZE, BATCH_COUNT
 from lan.buffer_client import BufferClient
 from lan.file_server import FileServer
 from uart.uart_worker import UartWorker
 
 HEADER_1024  = 0xFB
-BATCH_SIZE   = 8
-BATCH_COUNT  = 128
-FRAME_1024   = BATCH_SIZE * BATCH_COUNT  # 1024
 
+FRAME_1024   = BATCH_SIZE * BATCH_COUNT  # 1024 bytes
+
+# Function to verify the 1024-byte frame
 def verify_1024(frame: bytes) -> bool:
     if len(frame) != FRAME_1024: return False
     for i in range(BATCH_COUNT):
@@ -25,7 +25,8 @@ def verify_1024(frame: bytes) -> bool:
 def main():
     setup_logging("INFO")
     cfg = yaml.safe_load(open("../config/app.yaml"))
-    # UART
+    
+    # UART Worker initialization
     uart = UartWorker(
         port=cfg["serial"]["port"],
         baud=cfg["serial"]["baud"],
@@ -36,7 +37,7 @@ def main():
     )
     uart.start()
 
-    # 64B Buffer client (RPi -> PC)
+    # Buffer client (RPi -> PC)
     buf = BufferClient(cfg["network"]["buffer_server_ip"], cfg["network"]["buffer_server_port"])
     buf.start()
 
@@ -50,31 +51,33 @@ def main():
     last_file_seen = None
 
     print("[MAIN] Running: PC buffer server @5001, RPi file server @5002, UART active.")
+    
     try:
         while True:
-            # UART RX -> (optionally) update 64B status to PC
+            # 1) UART RX -> (optionally) update 64B status to PC
             rx = uart.get_rx_nowait()
             if rx and verify_1024(rx):
                 c = zlib.crc32(rx)
                 if c != last_uart_crc:
                     last_uart_crc = c
-                    # Example: push tiny status to PC (first 8 bytes of frame)
-                    payload = rx[:8]
-                    buf.Tx_Frame[:] = build_raw64(payload)
+                    print("[UART] Rx is OK")
+                    uart.put_tx(rx)
+                    buf.Tx_Frame = rx
                     buf.send_once()
+                    
 
-            # If PC sends 64B command, you can translate to UART frame(s)
+            # 2) If PC sends 64B command, you can translate to UART frame(s)
             frame64 = bytes(buf.Rx_Frame)
             if verify_raw64(frame64):
                 c2 = zlib.crc32(frame64)
                 if c2 != last_buf_crc:
                     last_buf_crc = c2
                     # demo: expand 64B into one 1024B echo frame (toy)
-                    out = bytearray([HEADER_1024,0,0,0,0,0,0,0] * BATCH_COUNT)
+                    #out = bytearray([HEADER_1024,0,0,0,0,0,0,0] * BATCH_COUNT)
                     # copy a few bytes into payload region if needed
-                    uart.put_tx(bytes(out))
+                    #uart.put_tx(bytes(out))
 
-            # New file arrived -> stream to UART (paced)
+            # 3) New file arrived -> stream to UART (paced)
             if files.last_file_path and files.last_file_path != last_file_seen:
                 p = files.last_file_path
                 last_file_seen = p
@@ -94,7 +97,7 @@ def main():
                             for k in range(BATCH_SIZE - 1):
                                 s = (s + ba[base + k]) & 0xFF
                             ba[base + (BATCH_SIZE - 1)] = s & 0xFF
-                        uart.put_tx(bytes(ba))
+                        #uart.put_tx(bytes(ba))
                 # (optional) clear files.last_file_path if you want one-shot handling
             time.sleep(0.01)
     except KeyboardInterrupt:

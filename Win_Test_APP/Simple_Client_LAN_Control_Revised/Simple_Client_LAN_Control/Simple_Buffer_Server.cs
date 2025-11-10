@@ -80,6 +80,8 @@ namespace Simple_Client_LAN_Control
         private byte[] _assemblyBuf = new byte[4096];
         private int _assemblyLen = 0;
 
+        private bool _stopping = false;
+
         // outgoing send queue
         private readonly ConcurrentQueue<byte[]> _txQueue = new ConcurrentQueue<byte[]>();
 
@@ -122,17 +124,48 @@ namespace Simple_Client_LAN_Control
 
         public void Stop()
         {
-            try { _mainCts?.Cancel(); } catch { }
+            // Prevent recursion
+            if (_stopping) return;
+            _stopping = true;
 
-            timerRxFlash?.Stop();
-            _isConnected = false;
+            try
+            {
+                // Cancel the cancellation tokens if they exist
+                _mainCts?.Cancel();
+                _sessionCts?.Cancel();
 
-            CleanupSocket();
+                // Stop any timers and clear states
+                timerRxFlash?.Stop();
+                _isConnected = false;
 
-            try { _listener?.Stop(); } catch { }
+                // Cleanup sockets and listeners
+                CleanupSocket();
+                try
+                {
+                    _listener?.Stop();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to stop listener: {ex.Message}");
+                }
 
-            if (_sessionCts != null) { try { _sessionCts.Cancel(); } catch { } _sessionCts.Dispose(); _sessionCts = null; }
-            if (_mainCts != null) { _mainCts.Dispose(); _mainCts = null; }
+                // Dispose of the session and main cancellation tokens safely
+                _sessionCts?.Dispose();
+                _sessionCts = null;
+
+                _mainCts?.Dispose();
+                _mainCts = null;
+            }
+            catch (Exception ex)
+            {
+                // Log unexpected errors here
+                Console.WriteLine($"Error during Stop: {ex.Message}");
+            }
+            finally
+            {
+                // Allow Stop() to be called again if needed
+                _stopping = false;
+            }
         }
 
         // enqueue a frame to send to the connected client
@@ -175,7 +208,18 @@ namespace Simple_Client_LAN_Control
                     SafeSetStatusImage(StatusState.Connected);
                     SafeFireConnected();
 
-                    if (_sessionCts != null) { try { _sessionCts.Cancel(); } catch { } _sessionCts.Dispose(); }
+                    if (_sessionCts != null) 
+                    {
+                        try 
+                        {
+                            _sessionCts.Cancel(); 
+                        } 
+                        catch 
+                        {
+                            _sessionCts.Dispose();
+                        } 
+                        
+                    }
                     _sessionCts = new CancellationTokenSource();
 
                     _ = ReceiveLoopAsync(_sessionCts.Token);
