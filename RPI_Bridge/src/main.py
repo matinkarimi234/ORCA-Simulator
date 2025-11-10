@@ -24,7 +24,7 @@ def verify_1024(frame: bytes) -> bool:
 
 def main():
     setup_logging("INFO")
-    cfg = yaml.safe_load(open("config/app.yaml"))
+    cfg = yaml.safe_load(open("../config/app.yaml"))
     # UART
     uart = UartWorker(
         port=cfg["serial"]["port"],

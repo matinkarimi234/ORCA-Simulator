@@ -20,56 +20,56 @@ namespace ORCA_Simulator_Wireless_Test_App
 
             // ==== Configure the BUFFER SERVER control (PC listens) ====
             // Bind to all local interfaces; the RPi BufferClient will connect here
-            lanServer.BindAddress = "0.0.0.0";  // or a specific NIC IP
-            lanServer.Port = 5001;
-            lanServer.RX_Byte_Count = RAW_SIZE;
+            lan_Server.BindAddress = "0.0.0.0";  // or a specific NIC IP
+            lan_Server.Port = 5001;
+            lan_Server.RX_Byte_Count = RAW_SIZE;
 
             // ---- hook events ----
-            lanServer.Connected += LanServer_OnConnected;
-            lanServer.Disconnected += LanServer_OnDisconnected;
-            lanServer.DataReceived += LanServer_DataReceived;
+            lan_Server.Connected += lan_Server_OnConnected;
+            lan_Server.Disconnected += lan_Server_OnDisconnected;
+            lan_Server.DataReceived += lan_Server_DataReceived;
 
             // ---- start server ----
-            lanServer.Start();
+            lan_Server.Start();
         }
 
-        private void LanServer_OnConnected(object sender, EventArgs e)
+        private void lan_Server_OnConnected(object sender, EventArgs e)
         {
             // Optionally send a one-shot hello 64B frame
             var helloPayload = new byte[62];
             for (int i = 0; i < helloPayload.Length; i++) helloPayload[i] = (byte)i;
             var frame = BuildRaw64Frame(helloPayload);
-            lanServer.Send(frame);
+            lan_Server.Send(frame);
             // UI hint
             labelStatus.Text = "Connected";
         }
 
-        private void LanServer_OnDisconnected(object sender, EventArgs e)
+        private void lan_Server_OnDisconnected(object sender, EventArgs e)
         {
             labelStatus.Text = "Disconnected";
         }
 
         // === PC (server) received exactly one 64B frame from RPi ===
-        private void LanServer_DataReceived(object sender, DataReceivedEventArgs e)
+        private void lan_Server_DataReceived(object sender, DataReceivedEventArgs e)
         {
             var raw = e.Data;
             if (raw == null || raw.Length != RAW_SIZE) return;
             if (!VerifyRaw64(raw)) return; // drop bad frames
 
             // Example: echo back (non-blocking; the control has an internal send queue)
-            lanServer.Send(raw);
+            lan_Server.Send(raw);
 
             // OPTIONAL: parse payload bytes [1..62]
             // byte cmd = raw[1];
             // ... update UI safely if you want:
-            try
-            {
-                if (InvokeRequired)
-                    BeginInvoke((MethodInvoker)(() => labelLastRx.Text = $"RX: {BitConverter.ToString(raw, 0, 8)}"));
-                else
-                    labelLastRx.Text = $"RX: {BitConverter.ToString(raw, 0, 8)}";
-            }
-            catch { }
+            //try
+            //{
+            //    if (InvokeRequired)
+            //        BeginInvoke((MethodInvoker)(() => labelLastRx.Text = $"RX: {BitConverter.ToString(raw, 0, 8)}"));
+            //    else
+            //        labelLastRx.Text = $"RX: {BitConverter.ToString(raw, 0, 8)}";
+            //}
+            //catch { }
         }
 
         // -----------------------------------------------
@@ -120,7 +120,7 @@ namespace ORCA_Simulator_Wireless_Test_App
             _counter++;
 
             var frame = BuildRaw64Frame(payload);
-            lanServer.Send(frame);
+            lan_Server.Send(frame);
         }
 
         // -----------------------------------------------
@@ -156,7 +156,7 @@ namespace ORCA_Simulator_Wireless_Test_App
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             // tidy shutdown
-            lanServer.Stop();
+            lan_Server.Stop();
             base.OnFormClosing(e);
         }
     }

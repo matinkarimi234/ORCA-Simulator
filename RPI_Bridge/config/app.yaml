@@ -4,13 +4,13 @@ serial:
   rtscts: false
 
 network:
-  buffer_server_ip: "192.168.0.200"  # PC IP (C# BufferServer)
+  buffer_server_ip: "192.168.0.199"  # PC IP (C# BufferServer)
   buffer_server_port: 5001
   file_server_ip: "0.0.0.0"
   file_server_port: 5002
 
 paths:
-  incoming_dir: "/home/pi"
+  incoming_dir: "/home/boresight"
 
 timing:
   status_period_ms: 100               # if you want periodic 64B pushes
