@@ -142,7 +142,7 @@ class BufferClient:
                             with self._lock:
                                 self.Rx_Frame[:] = frame
                             # Optional: silent on success; uncomment if needed:
-                            # print("[BUF-CLIENT] RX verified")
+                            print("[BUF-CLIENT] RX verified")
                         else:
                             print("[BUF-CLIENT] RX failed verify")
                     time.sleep(0.005)

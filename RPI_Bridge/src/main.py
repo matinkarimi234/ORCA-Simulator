@@ -49,7 +49,6 @@ def main():
     net = BufferClient(
         server_ip=cfg["network"]["buffer_server_ip"],
         server_port=cfg["network"]["buffer_server_port"],
-        rx_verify_fn=verify_1024
     )
     net.start()
 
@@ -72,10 +71,11 @@ def main():
     feeder = FrameOnUartRxFeeder(
         uart=uart,
         frames=init_frames,
-        verify_fn=verify_1024,
+        verify_fn=verify_1024,      # this verifies RX if you expect 1024B from uC
         loop_frames=True,
         poll_sleep_s=0.001,
-        rx_qmax=cfg["timing"]["rx_queue_max"]
+        rx_qmax=cfg["timing"]["rx_queue_max"],
+        keepalive_when_empty=True   # <— enable keep-alive
     )
     feeder.start()
 
@@ -94,7 +94,7 @@ def main():
         feeder=feeder,
         net_client=net,
         verify_fn=verify_1024,
-        poll_sleep_s=0.005
+        poll_sleep_s=0.05
     )
     forwarder.start()
 

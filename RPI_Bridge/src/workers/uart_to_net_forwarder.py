@@ -28,11 +28,12 @@ class UartToNetForwarder:
         while not self._stop.is_set():
             frm = self._feeder.get_rx_frame_nowait()
             if frm is not None:
-                if (self._verify_fn is None) or self._verify_fn(frm):
-                    # Optional: skip send attempts if not connected (saves exceptions)
-                    if self._net.is_connected:
-                        try:
-                            self._net.send_frame(frm)
-                        except Exception:
-                            pass
+                # Optional: skip send attempts if not connected (saves exceptions)
+                if self._net.is_connected:
+                    try:
+                        self._net.send_frame(frm)
+                        print("[PC] Sent")
+                    except Exception:
+                        print("[PC] Couldnt Send")
+                        pass
             time.sleep(self._poll_sleep_s)
