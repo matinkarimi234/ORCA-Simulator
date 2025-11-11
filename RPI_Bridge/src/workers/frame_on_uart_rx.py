@@ -1,6 +1,14 @@
 # rpi/src/workers/frame_on_uart_rx.py
 import threading, time
 from typing import List, Optional, Callable
+import RPi.GPIO as GPIO
+
+tx_pin = 20
+rx_pin = 21
+
+GPIO.setmode(GPIO.BCM) # Broadcom pin-numbering scheme
+GPIO.setup(tx_pin, GPIO.OUT) 
+GPIO.setup(rx_pin, GPIO.OUT) 
 
 class FrameOnUartRxFeeder:
     """
@@ -66,6 +74,9 @@ class FrameOnUartRxFeeder:
         while not self._stop.is_set():
             rx = self.uart.get_rx_nowait()
             if rx is not None:
+                GPIO.output(rx_pin, GPIO.HIGH)
+                time.sleep(0.005)
+                GPIO.output(rx_pin, GPIO.LOW)
                 if pending is None:
                     pending = self._next_frame()
                     if pending is None:
@@ -73,6 +84,9 @@ class FrameOnUartRxFeeder:
                         continue
                 try:
                     self.uart.put_tx(pending)
+                    GPIO.output(tx_pin, GPIO.HIGH)
+                    time.sleep(0.005)
+                    GPIO.output(tx_pin, GPIO.LOW)
                 except Exception:
                     pass
                 pending = None

@@ -89,9 +89,9 @@ def main():
     try:
         # keep main loop light; forward uC->PC if you wish
         while True:
-            frm = uart.get_rx_nowait()
-            if frm and verify_1024(frm):
-                net.send_frame(frm)   # optional monitoring to PC
+            # frm = uart.get_rx_nowait()
+            # if frm and verify_1024(frm):
+            #     net.send_frame(frm)   # optional monitoring to PC
             time.sleep(0.01)
     except KeyboardInterrupt:
         print("\n[MAIN] Stopping...")
