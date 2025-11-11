@@ -174,7 +174,7 @@ namespace ORCA_Simulator_Wireless_Test_App
             using (var ofd = new OpenFileDialog()
             {
                 Title = "Select file to upload to RPi",
-                Filter = "CSV/Text|*.csv;*.txt|All files|*.*"
+                Filter = "CSV/Text/bin|*.csv;*.txt;*.bin|All files|*.*"
             })
             {
                 if (ofd.ShowDialog(this) != DialogResult.OK) return;

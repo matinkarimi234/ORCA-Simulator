@@ -47,12 +47,12 @@ class UartWorker:
                     try: self.rx_q.put_nowait(frm)
                     except queue.Full: pass
             else:
-                time.sleep(0.001)
+                time.sleep(0.05)
 
     def _tx_loop(self):
         while not self._stop.is_set():
             try:
-                frm = self.tx_q.get(timeout=0.02)
+                frm = self.tx_q.get(timeout=0.05)
             except queue.Empty:
                 continue
             try:

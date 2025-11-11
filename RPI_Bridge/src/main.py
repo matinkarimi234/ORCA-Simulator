@@ -1,3 +1,4 @@
+# rpi/src/main.py
 #!/usr/bin/env python3
 import os, time, yaml, zlib
 from common.logging_setup import setup_logging
@@ -5,6 +6,12 @@ from common.framing import BATCH_SIZE, BATCH_COUNT   # 8, 128
 from lan.buffer_client import BufferClient
 from lan.file_server import FileServer
 from uart.uart_worker import UartWorker
+
+# NEW imports:
+from workers.frame_on_uart_rx import FrameOnUartRxFeeder
+from workers.file_ingest import FileIngestWorker
+from common.mw_txt_reader import load_frames_from_txt
+from common.bin_loader import load_frames_from_bin
 
 HEADER_1024  = 0xFB
 FRAME_1024   = BATCH_SIZE * BATCH_COUNT  # 1024 bytes
@@ -24,7 +31,7 @@ def main():
     setup_logging("INFO")
     cfg = yaml.safe_load(open("../config/app.yaml"))
 
-    # --- UART worker (handles serial in its own thread) ---
+    # UART worker
     uart = UartWorker(
         port=cfg["serial"]["port"],
         baud=cfg["serial"]["baud"],
@@ -35,7 +42,7 @@ def main():
     )
     uart.start()
 
-    # --- 1024B TCP client to C# BufferServer ---
+    # Optional: 1024B TCP client to PC
     net = BufferClient(
         server_ip=cfg["network"]["buffer_server_ip"],
         server_port=cfg["network"]["buffer_server_port"],
@@ -44,7 +51,7 @@ def main():
     )
     net.start()
 
-    # --- File server stays as-is (if you need it) ---
+    # File server
     files = FileServer(
         cfg["network"]["file_server_ip"],
         cfg["network"]["file_server_port"],
@@ -52,43 +59,44 @@ def main():
     )
     files.start()
 
-    last_uart_crc = None
-    last_pc_crc   = None
-    last_file_seen = None
-
-    print("[MAIN] Running: PC 1024B buffer server @%d, RPi file server @%d, UART active."
-          % (cfg["network"]["buffer_server_port"], cfg["network"]["file_server_port"]))
-
+    # Feeder starts with a default file (if present)
+    default_txt = cfg["paths"].get("moving_window_txt", "/home/pi/incoming/ramp_overlap_5min.txt")
     try:
+        init_frames = load_frames_from_txt(default_txt) if os.path.exists(default_txt) else []
+    except Exception:
+        init_frames = []
+
+    feeder = FrameOnUartRxFeeder(
+        uart=uart,
+        frames=init_frames,
+        verify_fn=verify_1024,
+        loop_frames=True,
+        poll_sleep_s=0.001
+    )
+    feeder.start()
+
+    # File ingest worker: swap feeder content when a new file arrives from PC
+    ingest = FileIngestWorker(
+        files_obj=files,
+        on_frames=feeder.reset_with_frames,     # hot-swap callback
+        txt_loader=load_frames_from_txt,
+        bin_loader=load_frames_from_bin,
+        poll_s=0.2
+    )
+    ingest.start()
+
+    print("[MAIN] Running (uC is timing master; feeder replies with next 1024B frame per RX).")
+    try:
+        # keep main loop light; forward uC->PC if you wish
         while True:
-            # 1) UART -> PC (forward full 1024B frames AS-IS)
             frm = uart.get_rx_nowait()
             if frm and verify_1024(frm):
-                c = zlib.crc32(frm)
-                if c != last_uart_crc:
-                    last_uart_crc = c
-                    net.send_frame(frm)
-
-            # 2) (optional) PC -> UART (if you want to inject frames from PC)
-            pc = bytes(net.last_frame)
-            if verify_1024(pc):
-                c2 = zlib.crc32(pc)
-                if c2 != last_pc_crc:
-                    last_pc_crc = c2
-                    # Uncomment if you want PC to drive the uC:
-                    # uart.put_tx(pc)
-
-            # 3) (optional) file->UART handling left as-is or deferred
-            if files.last_file_path and files.last_file_path != last_file_seen:
-                last_file_seen = files.last_file_path
-                print(f"[MAIN] New file: {os.path.basename(last_file_seen)} ({files.last_file_size} B)")
-                # stream to UART in a separate thread if needed
-
+                net.send_frame(frm)   # optional monitoring to PC
             time.sleep(0.01)
     except KeyboardInterrupt:
         print("\n[MAIN] Stopping...")
     finally:
-        files.stop(); net.stop(); uart.stop()
+        ingest.stop(); feeder.stop(); files.stop(); net.stop(); uart.stop()
 
 if __name__ == "__main__":
     main()
