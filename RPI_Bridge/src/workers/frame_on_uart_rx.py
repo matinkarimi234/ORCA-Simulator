@@ -1,26 +1,31 @@
 # rpi/src/workers/frame_on_uart_rx.py
-import threading, time
+import threading, time, queue
 from typing import List, Optional, Callable
 import RPi.GPIO as GPIO
 
 tx_pin = 20
 rx_pin = 21
 
-GPIO.setmode(GPIO.BCM) # Broadcom pin-numbering scheme
-GPIO.setup(tx_pin, GPIO.OUT) 
-GPIO.setup(rx_pin, GPIO.OUT) 
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)  # Broadcom numbering
+GPIO.setup(tx_pin, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(rx_pin, GPIO.OUT, initial=GPIO.LOW)
 
 class FrameOnUartRxFeeder:
     """
-    Sends ONE next 1024B frame each time the uC sends *anything*.
-    Runs in its own thread; does not block main.
+    Watches UART RX. Each time the uC sends anything:
+      - stash that RX in an internal queue (for PC forwarding),
+      - send ONE next 1024B frame back to the uC (from preloaded frames).
+    Keeps network completely out of the UART path.
     """
+
     def __init__(self,
                  uart,
                  frames: List[bytes] = None,
                  verify_fn: Optional[Callable[[bytes], bool]] = None,
                  loop_frames: bool = True,
-                 poll_sleep_s: float = 0.001):
+                 poll_sleep_s: float = 0.001,
+                 rx_qmax: int = 32):
         self.uart = uart
         self._frames = frames or []
         self._verify_fn = verify_fn
@@ -32,6 +37,10 @@ class FrameOnUartRxFeeder:
         self._thr: Optional[threading.Thread] = None
         self._lock = threading.Lock()
 
+        # RX-from-uC buffer for the PC forwarder
+        self._rx_queue: "queue.Queue[bytes]" = queue.Queue(maxsize=rx_qmax)
+
+    # ---------- lifecycle ----------
     def start(self):
         if self._thr and self._thr.is_alive():
             return
@@ -42,11 +51,9 @@ class FrameOnUartRxFeeder:
     def stop(self):
         self._stop.set()
 
+    # ---------- frames management ----------
     def reset_with_frames(self, frames: List[bytes]):
-        """
-        Hot-swap the source frames atomically and reset index to 0.
-        Safe to call from any thread (e.g., file ingest worker).
-        """
+        """Hot-swap source frames atomically; reset index to 0."""
         if frames is None:
             frames = []
         with self._lock:
@@ -65,29 +72,66 @@ class FrameOnUartRxFeeder:
             self._idx += 1
 
         if self._verify_fn and frm is not None and not self._verify_fn(frm):
-            # Skip invalid; try next (tail recursion avoided)
+            # Skip invalid and fetch the next one
             return self._next_frame()
         return frm
+
+    # ---------- RX queue I/O ----------
+    def _push_rx_for_pc(self, rx: Optional[bytes]):
+        if not rx:
+            return
+        try:
+            self._rx_queue.put_nowait(rx)
+        except queue.Full:
+            # Drop oldest to keep real-time behavior
+            try:
+                _ = self._rx_queue.get_nowait()
+            except Exception:
+                pass
+            try:
+                self._rx_queue.put_nowait(rx)
+            except Exception:
+                pass
+
+    def get_rx_frame_nowait(self) -> Optional[bytes]:
+        """Non-blocking read for the PC forwarder."""
+        try:
+            return self._rx_queue.get_nowait()
+        except queue.Empty:
+            return None
+
+    # ---------- main loop ----------
+    def _pulse(self, pin: int, dur: float = 0.005):
+        GPIO.output(pin, GPIO.HIGH)
+        time.sleep(dur)
+        GPIO.output(pin, GPIO.LOW)
 
     def _run(self):
         pending: Optional[bytes] = None
         while not self._stop.is_set():
             rx = self.uart.get_rx_nowait()
             if rx is not None:
-                GPIO.output(rx_pin, GPIO.HIGH)
-                time.sleep(0.005)
-                GPIO.output(rx_pin, GPIO.LOW)
+                # Visual RX pulse
+                self._pulse(rx_pin)
+
+                # Stash RX for PC
+                self._push_rx_for_pc(rx)
+
+                # Prepare next 1024B frame once per RX event
                 if pending is None:
                     pending = self._next_frame()
                     if pending is None:
+                        # Nothing to send right now
                         time.sleep(0.01)
+                        time.sleep(self._poll_sleep_s)
                         continue
+
+                # Transmit to uC (non-blocking via UartWorker queue)
                 try:
                     self.uart.put_tx(pending)
-                    GPIO.output(tx_pin, GPIO.HIGH)
-                    time.sleep(0.005)
-                    GPIO.output(tx_pin, GPIO.LOW)
+                    self._pulse(tx_pin)
                 except Exception:
                     pass
                 pending = None
+
             time.sleep(self._poll_sleep_s)

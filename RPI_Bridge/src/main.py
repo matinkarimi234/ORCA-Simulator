@@ -49,8 +49,7 @@ def main():
     net = BufferClient(
         server_ip=cfg["network"]["buffer_server_ip"],
         server_port=cfg["network"]["buffer_server_port"],
-        frame_size=FRAME_1024,
-        verify_fn=verify_1024
+        rx_verify_fn=verify_1024
     )
     net.start()
 
