@@ -1,30 +1,34 @@
+# lan/buffer_client.py
 import socket, threading, time
-from typing import Optional
-from common.framing import RAW_SIZE, verify_raw64, BATCH_SIZE, BATCH_COUNT
+from typing import Optional, Callable
 
 class BufferClient:
     """
-    RPi 64B client that connects to the C# BufferServer (PC).
-    - Keeps the latest received frame in Rx_Frame.
-    - Call send_once() to push current Tx_Frame (exactly 64 bytes).
-    - Auto-reconnect with backoff; non-blocking loops.
+    TCP client for fixed-size frames (e.g., 1024 bytes).
+    - frame_size: exact bytes per frame
+    - verify_fn: optional Callable[[bytes], bool] to validate frames
+    Stores last received valid frame in last_frame (bytearray).
+    send_frame(frame) sends exactly one frame (must be frame_size bytes).
     """
-    def __init__(self, server_ip: str, server_port: int = 5001):
+    def __init__(self, server_ip: str, server_port: int, frame_size: int,
+                 verify_fn: Optional[Callable[[bytes], bool]] = None):
         self.server_ip = server_ip
         self.server_port = int(server_port)
+        self.frame_size = int(frame_size)
+        self.verify_fn = verify_fn
 
-        self.Rx_Frame = bytearray(b"\x00" * RAW_SIZE)
-        self.Tx_Frame = bytearray(b"\x00" * BATCH_SIZE*BATCH_COUNT)
+        self.last_frame = bytearray(b"\x00" * self.frame_size)
         self.is_connected = 0
 
-        self._stop = threading.Event()
-        self._th = threading.Thread(target=self._loop, daemon=True)
         self._sock: Optional[socket.socket] = None
+        self._stop = threading.Event()
         self._lock = threading.Lock()
+        self._th = threading.Thread(target=self._loop, daemon=True)
 
     def start(self):
         if self._th.is_alive(): return
-        self._stop.clear(); self._th.start()
+        self._stop.clear()
+        self._th.start()
 
     def stop(self):
         self._stop.set()
@@ -32,18 +36,18 @@ class BufferClient:
             if self._sock: self._sock.close()
         except: pass
 
-    def send_once(self) -> bool:
+    def send_frame(self, frame: bytes) -> bool:
+        if not frame or len(frame) != self.frame_size: return False
         s = self._sock
         if not s: return False
         try:
-            with self._lock:
-                data = bytes(self.Tx_Frame)
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            s.sendall(data)
+            s.sendall(frame)
             return True
         except Exception:
             return False
 
+    # --------------- internal ---------------
     def _loop(self):
         backoff = 0.5
         while not self._stop.is_set():
@@ -57,15 +61,14 @@ class BufferClient:
                 self._sock = s
                 self.is_connected = 1
                 backoff = 0.5
-                print(f"[BUF-CLIENT] Connected {self.server_ip}:{self.server_port}")
+                print(f"[BUFFER-CLIENT] Connected {self.server_ip}:{self.server_port}")
 
                 rx_buf = bytearray()
                 while not self._stop.is_set():
-                    # receive
                     try:
-                        chunk = s.recv(4096)
+                        chunk = s.recv(8192)
                         if not chunk:
-                            print("[BUF-CLIENT] PC closed")
+                            print("[BUFFER-CLIENT] server closed")
                             break
                         rx_buf.extend(chunk)
                     except socket.timeout:
@@ -73,17 +76,13 @@ class BufferClient:
                     except Exception:
                         break
 
-                    # fixed 64B frames
-                    while len(rx_buf) >= RAW_SIZE:
-                        frame = bytes(rx_buf[:RAW_SIZE])
-                        del rx_buf[:RAW_SIZE]
-                        if verify_raw64(frame):
+                    while len(rx_buf) >= self.frame_size:
+                        frame = bytes(rx_buf[:self.frame_size])
+                        del rx_buf[:self.frame_size]
+                        if (self.verify_fn is None) or self.verify_fn(frame):
                             with self._lock:
-                                print("[BUF-CLIENT] RX Received and OK")
-                                self.Rx_Frame[:] = frame
-                        else:
-                            print("[BUF-CLIENT] RX not verified!")
-                    time.sleep(0.005)
+                                self.last_frame[:] = frame
+                    time.sleep(0.002)
 
             except Exception:
                 time.sleep(backoff)

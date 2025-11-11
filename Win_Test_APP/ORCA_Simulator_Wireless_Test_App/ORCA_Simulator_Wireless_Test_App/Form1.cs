@@ -103,7 +103,7 @@ namespace ORCA_Simulator_Wireless_Test_App
                     break;
                 }
 
-                if (ok)
+                if (!ok)
                 {
                     Console.WriteLine("Bad frame dropped");
                     return;

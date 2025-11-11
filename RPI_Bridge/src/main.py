@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
-import time, os, yaml, zlib
+import os, time, yaml, zlib
 from common.logging_setup import setup_logging
-from common.framing import RAW_SIZE, build_raw64, verify_raw64, BATCH_SIZE, BATCH_COUNT
+from common.framing import BATCH_SIZE, BATCH_COUNT   # 8, 128
 from lan.buffer_client import BufferClient
 from lan.file_server import FileServer
 from uart.uart_worker import UartWorker
 
 HEADER_1024  = 0xFB
-
 FRAME_1024   = BATCH_SIZE * BATCH_COUNT  # 1024 bytes
 
-# Function to verify the 1024-byte frame
 def verify_1024(frame: bytes) -> bool:
     if len(frame) != FRAME_1024: return False
     for i in range(BATCH_COUNT):
@@ -25,8 +23,8 @@ def verify_1024(frame: bytes) -> bool:
 def main():
     setup_logging("INFO")
     cfg = yaml.safe_load(open("../config/app.yaml"))
-    
-    # UART Worker initialization
+
+    # --- UART worker (handles serial in its own thread) ---
     uart = UartWorker(
         port=cfg["serial"]["port"],
         baud=cfg["serial"]["baud"],
@@ -37,73 +35,60 @@ def main():
     )
     uart.start()
 
-    # Buffer client (RPi -> PC)
-    buf = BufferClient(cfg["network"]["buffer_server_ip"], cfg["network"]["buffer_server_port"])
-    buf.start()
+    # --- 1024B TCP client to C# BufferServer ---
+    net = BufferClient(
+        server_ip=cfg["network"]["buffer_server_ip"],
+        server_port=cfg["network"]["buffer_server_port"],
+        frame_size=FRAME_1024,
+        verify_fn=verify_1024
+    )
+    net.start()
 
-    # File server (PC -> RPi)
-    files = FileServer(cfg["network"]["file_server_ip"], cfg["network"]["file_server_port"],
-                       cfg["paths"]["incoming_dir"])
+    # --- File server stays as-is (if you need it) ---
+    files = FileServer(
+        cfg["network"]["file_server_ip"],
+        cfg["network"]["file_server_port"],
+        cfg["paths"]["incoming_dir"]
+    )
     files.start()
 
     last_uart_crc = None
-    last_buf_crc = None
+    last_pc_crc   = None
     last_file_seen = None
 
-    print("[MAIN] Running: PC buffer server @5001, RPi file server @5002, UART active.")
-    
+    print("[MAIN] Running: PC 1024B buffer server @%d, RPi file server @%d, UART active."
+          % (cfg["network"]["buffer_server_port"], cfg["network"]["file_server_port"]))
+
     try:
         while True:
-            # 1) UART RX -> (optionally) update 64B status to PC
-            rx = uart.get_rx_nowait()
-            if rx and verify_1024(rx):
-                c = zlib.crc32(rx)
+            # 1) UART -> PC (forward full 1024B frames AS-IS)
+            frm = uart.get_rx_nowait()
+            if frm and verify_1024(frm):
+                c = zlib.crc32(frm)
                 if c != last_uart_crc:
                     last_uart_crc = c
-                    print("[UART] Rx is OK")
-                    uart.put_tx(rx)
-                    buf.Tx_Frame = rx
-                    buf.send_once()
-                    
+                    net.send_frame(frm)
 
-            # 2) If PC sends 64B command, you can translate to UART frame(s)
-            frame64 = bytes(buf.Rx_Frame)
-            if verify_raw64(frame64):
-                c2 = zlib.crc32(frame64)
-                if c2 != last_buf_crc:
-                    last_buf_crc = c2
-                    # demo: expand 64B into one 1024B echo frame (toy)
-                    #out = bytearray([HEADER_1024,0,0,0,0,0,0,0] * BATCH_COUNT)
-                    # copy a few bytes into payload region if needed
-                    #uart.put_tx(bytes(out))
+            # 2) (optional) PC -> UART (if you want to inject frames from PC)
+            pc = bytes(net.last_frame)
+            if verify_1024(pc):
+                c2 = zlib.crc32(pc)
+                if c2 != last_pc_crc:
+                    last_pc_crc = c2
+                    # Uncomment if you want PC to drive the uC:
+                    # uart.put_tx(pc)
 
-            # 3) New file arrived -> stream to UART (paced)
+            # 3) (optional) file->UART handling left as-is or deferred
             if files.last_file_path and files.last_file_path != last_file_seen:
-                p = files.last_file_path
-                last_file_seen = p
-                print(f"[MAIN] New file: {os.path.basename(p)} ({files.last_file_size} B)")
-                with open(p, "rb") as f:
-                    while True:
-                        chunk = f.read(1024)
-                        if not chunk: break
-                        if len(chunk) < 1024:
-                            chunk = chunk + b"\x00" * (1024 - len(chunk))
-                        # stamp header/checksum per 8-byte batch
-                        ba = bytearray(chunk)
-                        for i in range(BATCH_COUNT):
-                            base = i * BATCH_SIZE
-                            ba[base] = HEADER_1024
-                            s = 0
-                            for k in range(BATCH_SIZE - 1):
-                                s = (s + ba[base + k]) & 0xFF
-                            ba[base + (BATCH_SIZE - 1)] = s & 0xFF
-                        #uart.put_tx(bytes(ba))
-                # (optional) clear files.last_file_path if you want one-shot handling
+                last_file_seen = files.last_file_path
+                print(f"[MAIN] New file: {os.path.basename(last_file_seen)} ({files.last_file_size} B)")
+                # stream to UART in a separate thread if needed
+
             time.sleep(0.01)
     except KeyboardInterrupt:
         print("\n[MAIN] Stopping...")
     finally:
-        files.stop(); buf.stop(); uart.stop()
+        files.stop(); net.stop(); uart.stop()
 
 if __name__ == "__main__":
     main()
