@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             Farand_Chart_Lib_Ver3.Farand_Chart.TitleStyle titleStyle1 = new Farand_Chart_Lib_Ver3.Farand_Chart.TitleStyle();
             Farand_Chart_Lib_Ver3.Farand_Chart.LabelStyle labelStyle1 = new Farand_Chart_Lib_Ver3.Farand_Chart.LabelStyle();
             Farand_Chart_Lib_Ver3.Farand_Chart.LineStyle lineStyle1 = new Farand_Chart_Lib_Ver3.Farand_Chart.LineStyle();
@@ -67,12 +68,21 @@
             Farand_Chart_Lib_Ver3.Farand_Chart.PointStyle pointStyle5 = new Farand_Chart_Lib_Ver3.Farand_Chart.PointStyle();
             Farand_Chart_Lib_Ver3.Farand_Chart.LineStyle lineStyle11 = new Farand_Chart_Lib_Ver3.Farand_Chart.LineStyle();
             this.farand_Chart1 = new Farand_Chart_Lib_Ver3.Farand_Chart();
-            this.button_Send_Packet = new System.Windows.Forms.Button();
             this.button_Send_File = new System.Windows.Forms.Button();
             this.labelStatus = new System.Windows.Forms.Label();
-            this.txtRpiIp = new System.Windows.Forms.TextBox();
-            this.label1 = new System.Windows.Forms.Label();
             this.lan_Server = new Simple_Client_LAN_Control.Simple_Buffer_Server();
+            this.timerUiUpdate = new System.Windows.Forms.Timer(this.components);
+            this.label_Current_Motor_Position = new System.Windows.Forms.Label();
+            this.groupBox1 = new System.Windows.Forms.GroupBox();
+            this.label1 = new System.Windows.Forms.Label();
+            this.txtRpiIp = new System.Windows.Forms.TextBox();
+            this.groupBox2 = new System.Windows.Forms.GroupBox();
+            this.label_Load_Status = new System.Windows.Forms.Label();
+            this.groupBox3 = new System.Windows.Forms.GroupBox();
+            this.label_Time = new System.Windows.Forms.Label();
+            this.groupBox1.SuspendLayout();
+            this.groupBox2.SuspendLayout();
+            this.groupBox3.SuspendLayout();
             this.SuspendLayout();
             // 
             // farand_Chart1
@@ -107,6 +117,7 @@
             titleStyle1.TopMargin = 10F;
             titleStyle1.Visible = true;
             this.farand_Chart1.Coordinates = titleStyle1;
+            this.farand_Chart1.Dock = System.Windows.Forms.DockStyle.Right;
             frame1.BottomMargin = 30F;
             frame1.DrawingRectangle = ((System.Drawing.RectangleF)(resources.GetObject("frame1.DrawingRectangle")));
             frame1.FillColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
@@ -147,9 +158,9 @@
             titleStyle2.TopMargin = 10F;
             titleStyle2.Visible = true;
             this.farand_Chart1.Legends = titleStyle2;
-            this.farand_Chart1.Location = new System.Drawing.Point(201, 4);
+            this.farand_Chart1.Location = new System.Drawing.Point(195, 0);
             this.farand_Chart1.Name = "farand_Chart1";
-            this.farand_Chart1.Size = new System.Drawing.Size(810, 451);
+            this.farand_Chart1.Size = new System.Drawing.Size(820, 460);
             this.farand_Chart1.TabIndex = 1;
             titleStyle3.BottomMargin = 4F;
             titleStyle3.FillColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(255)))), ((int)(((byte)(255)))), ((int)(((byte)(255)))));
@@ -311,81 +322,148 @@
             lineStyle11.Width = 1F;
             this.farand_Chart1.Zoom_Window_Frame = lineStyle11;
             // 
-            // button_Send_Packet
-            // 
-            this.button_Send_Packet.Location = new System.Drawing.Point(73, 126);
-            this.button_Send_Packet.Name = "button_Send_Packet";
-            this.button_Send_Packet.Size = new System.Drawing.Size(75, 23);
-            this.button_Send_Packet.TabIndex = 2;
-            this.button_Send_Packet.Text = "Packet";
-            this.button_Send_Packet.UseVisualStyleBackColor = true;
-            this.button_Send_Packet.Click += new System.EventHandler(this.btnSendCommand_Click);
-            // 
             // button_Send_File
             // 
-            this.button_Send_File.Location = new System.Drawing.Point(73, 184);
+            this.button_Send_File.Location = new System.Drawing.Point(6, 20);
             this.button_Send_File.Name = "button_Send_File";
-            this.button_Send_File.Size = new System.Drawing.Size(75, 23);
+            this.button_Send_File.Size = new System.Drawing.Size(100, 23);
             this.button_Send_File.TabIndex = 3;
-            this.button_Send_File.Text = "File";
+            this.button_Send_File.Text = "Load Positions";
             this.button_Send_File.UseVisualStyleBackColor = true;
             this.button_Send_File.Click += new System.EventHandler(this.btnSendFile_Click);
             // 
             // labelStatus
             // 
             this.labelStatus.AutoSize = true;
-            this.labelStatus.Location = new System.Drawing.Point(58, 26);
+            this.labelStatus.Location = new System.Drawing.Point(52, 31);
             this.labelStatus.Name = "labelStatus";
             this.labelStatus.Size = new System.Drawing.Size(73, 13);
             this.labelStatus.TabIndex = 4;
             this.labelStatus.Text = "Disconnected";
-            // 
-            // txtRpiIp
-            // 
-            this.txtRpiIp.Location = new System.Drawing.Point(61, 75);
-            this.txtRpiIp.Name = "txtRpiIp";
-            this.txtRpiIp.Size = new System.Drawing.Size(100, 20);
-            this.txtRpiIp.TabIndex = 5;
-            this.txtRpiIp.Text = "192.168.0.200";
-            // 
-            // label1
-            // 
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(15, 78);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(36, 13);
-            this.label1.TabIndex = 6;
-            this.label1.Text = "Rpi IP";
             // 
             // lan_Server
             // 
             this.lan_Server.BackColor = System.Drawing.Color.Transparent;
             this.lan_Server.BindAddress = "0.0.0.0";
             this.lan_Server.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lan_Server.Location = new System.Drawing.Point(12, 12);
+            this.lan_Server.Location = new System.Drawing.Point(6, 17);
             this.lan_Server.Name = "lan_Server";
             this.lan_Server.Port = 5001;
             this.lan_Server.RX_Byte_Count = 1024;
             this.lan_Server.Size = new System.Drawing.Size(40, 38);
             this.lan_Server.TabIndex = 0;
             // 
+            // timerUiUpdate
+            // 
+            this.timerUiUpdate.Enabled = true;
+            this.timerUiUpdate.Interval = 50;
+            this.timerUiUpdate.Tick += new System.EventHandler(this.timerUiUpdate_Tick);
+            // 
+            // label_Current_Motor_Position
+            // 
+            this.label_Current_Motor_Position.AutoSize = true;
+            this.label_Current_Motor_Position.Location = new System.Drawing.Point(9, 56);
+            this.label_Current_Motor_Position.Name = "label_Current_Motor_Position";
+            this.label_Current_Motor_Position.Size = new System.Drawing.Size(80, 13);
+            this.label_Current_Motor_Position.TabIndex = 8;
+            this.label_Current_Motor_Position.Text = "Motor Position: ";
+            // 
+            // groupBox1
+            // 
+            this.groupBox1.Controls.Add(this.label1);
+            this.groupBox1.Controls.Add(this.txtRpiIp);
+            this.groupBox1.Controls.Add(this.lan_Server);
+            this.groupBox1.Controls.Add(this.labelStatus);
+            this.groupBox1.Dock = System.Windows.Forms.DockStyle.Top;
+            this.groupBox1.Location = new System.Drawing.Point(0, 0);
+            this.groupBox1.Margin = new System.Windows.Forms.Padding(10);
+            this.groupBox1.Name = "groupBox1";
+            this.groupBox1.Size = new System.Drawing.Size(195, 94);
+            this.groupBox1.TabIndex = 9;
+            this.groupBox1.TabStop = false;
+            this.groupBox1.Text = "Connection";
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Location = new System.Drawing.Point(9, 70);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(36, 13);
+            this.label1.TabIndex = 8;
+            this.label1.Text = "Rpi IP";
+            // 
+            // txtRpiIp
+            // 
+            this.txtRpiIp.Location = new System.Drawing.Point(55, 67);
+            this.txtRpiIp.Name = "txtRpiIp";
+            this.txtRpiIp.Size = new System.Drawing.Size(100, 20);
+            this.txtRpiIp.TabIndex = 7;
+            this.txtRpiIp.Text = "192.168.0.200";
+            // 
+            // groupBox2
+            // 
+            this.groupBox2.Controls.Add(this.label_Load_Status);
+            this.groupBox2.Controls.Add(this.button_Send_File);
+            this.groupBox2.Dock = System.Windows.Forms.DockStyle.Top;
+            this.groupBox2.Location = new System.Drawing.Point(0, 94);
+            this.groupBox2.Margin = new System.Windows.Forms.Padding(10);
+            this.groupBox2.Name = "groupBox2";
+            this.groupBox2.Size = new System.Drawing.Size(195, 161);
+            this.groupBox2.TabIndex = 10;
+            this.groupBox2.TabStop = false;
+            this.groupBox2.Text = "Commands";
+            // 
+            // label_Load_Status
+            // 
+            this.label_Load_Status.AutoSize = true;
+            this.label_Load_Status.ForeColor = System.Drawing.SystemColors.ControlDarkDark;
+            this.label_Load_Status.Location = new System.Drawing.Point(126, 25);
+            this.label_Load_Status.Name = "label_Load_Status";
+            this.label_Load_Status.Size = new System.Drawing.Size(63, 13);
+            this.label_Load_Status.TabIndex = 11;
+            this.label_Load_Status.Text = "Not Loaded";
+            // 
+            // groupBox3
+            // 
+            this.groupBox3.Controls.Add(this.label_Time);
+            this.groupBox3.Controls.Add(this.label_Current_Motor_Position);
+            this.groupBox3.Dock = System.Windows.Forms.DockStyle.Top;
+            this.groupBox3.Location = new System.Drawing.Point(0, 255);
+            this.groupBox3.Margin = new System.Windows.Forms.Padding(10);
+            this.groupBox3.Name = "groupBox3";
+            this.groupBox3.Size = new System.Drawing.Size(195, 161);
+            this.groupBox3.TabIndex = 11;
+            this.groupBox3.TabStop = false;
+            this.groupBox3.Text = "Report";
+            // 
+            // label_Time
+            // 
+            this.label_Time.AutoSize = true;
+            this.label_Time.Location = new System.Drawing.Point(9, 26);
+            this.label_Time.Name = "label_Time";
+            this.label_Time.Size = new System.Drawing.Size(36, 13);
+            this.label_Time.TabIndex = 9;
+            this.label_Time.Text = "Time: ";
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1015, 460);
-            this.Controls.Add(this.label1);
-            this.Controls.Add(this.txtRpiIp);
-            this.Controls.Add(this.labelStatus);
-            this.Controls.Add(this.button_Send_File);
-            this.Controls.Add(this.button_Send_Packet);
+            this.Controls.Add(this.groupBox3);
+            this.Controls.Add(this.groupBox2);
+            this.Controls.Add(this.groupBox1);
             this.Controls.Add(this.farand_Chart1);
-            this.Controls.Add(this.lan_Server);
             this.Name = "Form1";
             this.Text = "Form1";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form1_FormClosing);
+            this.groupBox1.ResumeLayout(false);
+            this.groupBox1.PerformLayout();
+            this.groupBox2.ResumeLayout(false);
+            this.groupBox2.PerformLayout();
+            this.groupBox3.ResumeLayout(false);
+            this.groupBox3.PerformLayout();
             this.ResumeLayout(false);
-            this.PerformLayout();
 
         }
 
@@ -393,11 +471,17 @@
 
         private Simple_Client_LAN_Control.Simple_Buffer_Server lan_Server;
         private Farand_Chart_Lib_Ver3.Farand_Chart farand_Chart1;
-        private System.Windows.Forms.Button button_Send_Packet;
         private System.Windows.Forms.Button button_Send_File;
         private System.Windows.Forms.Label labelStatus;
-        private System.Windows.Forms.TextBox txtRpiIp;
+        private System.Windows.Forms.Timer timerUiUpdate;
+        private System.Windows.Forms.Label label_Current_Motor_Position;
+        private System.Windows.Forms.GroupBox groupBox1;
         private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.TextBox txtRpiIp;
+        private System.Windows.Forms.GroupBox groupBox2;
+        private System.Windows.Forms.Label label_Load_Status;
+        private System.Windows.Forms.GroupBox groupBox3;
+        private System.Windows.Forms.Label label_Time;
     }
 }
 

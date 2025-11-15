@@ -51,6 +51,10 @@ PHASE_RAD = 0.0            # phase in radians
 # Output file names
 OUT_SINE   = "sine_overlap_5min_pretty.txt"
 OUT_COSINE = "cosine_overlap_5min_pretty.txt"
+OUT_SINE_COSINE = "sine_cosine_overlap_5min_pretty.txt"
+
+FREQ_SINE = 0.05
+FREQ_COSINE = 0.1
 # ---------------------------
 
 def put_le_i32(buf, idx, v):
@@ -94,6 +98,11 @@ def signal_cosine(global_batch_index, i_in_frame):
     val = OFFSET + AMPLITUDE * math.cos(2.0 * math.pi * FREQ_HZ * t + PHASE_RAD)
     return int(round(val))
 
+def signal_sine_cosine(global_batch_index, i_in_frame):
+    t = (global_batch_index + i_in_frame) * (BATCH_MS / 1000.0) if not PER_FRAME_RESTART else i_in_frame * (BATCH_MS / 1000.0)
+    val = (OFFSET + AMPLITUDE * math.cos(2.0 * math.pi * FREQ_COSINE * t + PHASE_RAD)) + OFFSET + AMPLITUDE * math.sin(2.0 * math.pi * FREQ_SINE * t + PHASE_RAD)
+    return int(round(val))
+
 def build_frame_batches(start_batch_index, value_fn):
     """
     Returns list of 128 bytearrays (each 8B) for the frame starting at start_batch_index.
@@ -126,12 +135,20 @@ def write_pretty_file(path, value_fn):
 
 def main():
     print(f"Generating 5-minute overlapping files (PER_FRAME_RESTART={PER_FRAME_RESTART})")
+
     print(f"  sine  : freq={FREQ_HZ} Hz, amp={AMPLITUDE}, offset={OFFSET}, phase={PHASE_RAD} rad")
     write_pretty_file(OUT_SINE,   signal_sine)
     print(f"  -> {OUT_SINE}")
+
     print(f"  cosine: freq={FREQ_HZ} Hz, amp={AMPLITUDE}, offset={OFFSET}, phase={PHASE_RAD} rad")
     write_pretty_file(OUT_COSINE, signal_cosine)
     print(f"  -> {OUT_COSINE}")
+    
+
+    print(f"  sine_cosine: freq_cosine={FREQ_COSINE}, freq_sine={FREQ_SINE}, amp={AMPLITUDE}, offset={OFFSET}, phase={PHASE_RAD} rad")
+    write_pretty_file(OUT_SINE_COSINE, signal_sine_cosine)
+    print(f"  -> {OUT_SINE_COSINE}")
+
     print("Done.")
 
 if __name__ == "__main__":
