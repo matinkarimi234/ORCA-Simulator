@@ -45,6 +45,7 @@ class UartWorker:
 
     def request_reset(self):
         """Ask the threads to re-open the serial port (no thread stop)."""
+        log.warning("[UART] Reset requested")
         self._reset_req.set()
 
     def put_tx(self, frame: bytes):

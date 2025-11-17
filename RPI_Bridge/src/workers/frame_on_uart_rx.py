@@ -1,5 +1,5 @@
 # rpi/src/workers/frame_on_uart_rx.py
-import threading, time, queue
+import threading, time, queue, logging
 from typing import List, Optional, Callable
 import RPi.GPIO as GPIO
 # NEW: use your framing constants so keep-alive matches verify_1024
@@ -13,6 +13,8 @@ GPIO.setup(tx_pin, GPIO.OUT, initial=GPIO.LOW)
 GPIO.setup(rx_pin, GPIO.OUT, initial=GPIO.LOW)
 
 KEEPALIVE_HEADER = 0xFB  # must match your 1024B verify
+
+log = logging.getLogger("Rx")
 
 def build_keepalive_frame(counter: int) -> bytes:
     """
@@ -40,13 +42,6 @@ def build_keepalive_frame(counter: int) -> bytes:
     return bytes(buf)
 
 class FrameOnUartRxFeeder:
-    """
-    Watches UART RX. Each time the uC sends anything:
-      - stash that RX in an internal queue (for PC forwarding),
-      - send ONE next 1024B frame back to the uC (from preloaded frames),
-      - if no file frames available, send a KEEP-ALIVE frame to prevent uC reset.
-    """
-
     def __init__(self,
                  uart,
                  frames: List[bytes] = None,
@@ -54,7 +49,8 @@ class FrameOnUartRxFeeder:
                  loop_frames: bool = True,
                  poll_sleep_s: float = 0.001,
                  rx_qmax: int = 32,
-                 keepalive_when_empty: bool = True):
+                 keepalive_when_empty: bool = True,
+                 invalid_threshold: int = 10):
         self.uart = uart
         self._frames = frames or []
         self._verify_fn = verify_fn
@@ -71,6 +67,10 @@ class FrameOnUartRxFeeder:
 
         # RX-from-uC buffer for the PC forwarder
         self._rx_queue: "queue.Queue[bytes]" = queue.Queue(maxsize=rx_qmax)
+
+        # --- NEW: invalid RX counter ---
+        self._invalid_count = 0
+        self._invalid_threshold = invalid_threshold
     # ---------- lifecycle ----------
     def start(self):
         if self._thr and self._thr.is_alive():
@@ -154,6 +154,11 @@ class FrameOnUartRxFeeder:
             if rx:
                 # Optionally validate RX; if you expect 1024B here, keep verify_fn; otherwise skip
                 if (self._verify_fn is None) or self._verify_fn(rx):
+                    # --- NEW: valid packet -> reset invalid counter ---
+                    if self._invalid_count != 0:
+                        log.debug("Valid Rx Packet -> reset invalid_count (was %d)", self._invalid_count)
+                    self._invalid_count = 0
+
                     self._pulse(rx_pin)
                     self._push_rx_for_pc(rx)
 
@@ -172,6 +177,20 @@ class FrameOnUartRxFeeder:
                             pass
                         pending = None
                 else:
+                    # invalid frame received
+                    self._invalid_count += 1
+                    log.error("Invalid Rx Packet (%d/%d)",
+                              self._invalid_count, self._invalid_threshold)
+
+                    # --- NEW: trigger reset after N invalid packets ---
+                    if self._invalid_count >= self._invalid_threshold:
+                        log.warning("Too many invalid packets -> calling uart.request_reset()")
+                        self._invalid_count = 0
+                        try:
+                            self.uart.request_reset()
+                        except Exception as e:
+                            log.exception("uart.request_reset() failed: %s", e)
+
                     # RX was invalid; still consider sending keep-alive so uC doesn't reset
                     if self._keepalive_when_empty:
                         ka = build_keepalive_frame(self._ka_counter)
