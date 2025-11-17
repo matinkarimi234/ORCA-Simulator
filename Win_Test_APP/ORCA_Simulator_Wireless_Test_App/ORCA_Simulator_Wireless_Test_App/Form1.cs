@@ -18,6 +18,14 @@ namespace ORCA_Simulator_Wireless_Test_App
 
         const int RECEIVED_BATCH_COUNT = 10;
 
+        int received_counter = 0;
+        int received_counter_prev = 0;
+
+
+        bool run_flag = false;
+
+        byte[] command_Bytes = new byte[BATCH_SIZE * 8]; // 64
+
         struct Motor_Position_Sample
         {
             public byte Header;
@@ -73,12 +81,12 @@ namespace ORCA_Simulator_Wireless_Test_App
 
 
             // scroll window after ~10 seconds
-            if (time_Sec > farand_Chart1.XAxis.Minimum + 50)
+            if (time_Sec > farand_Chart1.XAxis.Minimum + 50 - 10)
             {
                 if (motor_Graph.Points.Count > 50) motor_Graph.Points.RemoveAt(0);
 
-                farand_Chart1.XAxis.Initial_Minimum += 1;
-                farand_Chart1.XAxis.Initial_Maximum += 1;
+                farand_Chart1.XAxis.Initial_Minimum += d_t;
+                farand_Chart1.XAxis.Initial_Maximum += d_t;
             }
             if (current_Motor_Position > farand_Chart1.YAxis.Maximum)
             {
@@ -150,24 +158,25 @@ namespace ORCA_Simulator_Wireless_Test_App
         {
             if (_txTickBusy) return;
             _txTickBusy = true;
+
             try
             {
-                // Optional: you can track lanServer.IsConnected if you exposed it.
-                // If not exposed, just send; the control handles failures gracefully.
+                command_Bytes[1] = (byte)(run_flag ? 0x00 : 0x01);
 
-                // Build payload (example puts a counter in bytes [1..4])
-                var payload = new byte[62];
-                payload[0] = (byte)((_txCounter >> 0) & 0xFF);
-                payload[1] = (byte)((_txCounter >> 8) & 0xFF);
-                payload[2] = (byte)((_txCounter >> 16) & 0xFF);
-                payload[3] = (byte)((_txCounter >> 24) & 0xFF);
-                _txCounter++;
-
-                var frame = BuildRaw64Frame(payload);
+                var frame = Build_Command_64bytes(command_Bytes);
                 lan_Server.Send(frame); // non-blocking enqueue inside the control
             }
             catch { /* ignore one-shot errors */ }
             finally { _txTickBusy = false; }
+        }
+
+        private byte[] Clear_All_Buffers(byte[] buf, int length)
+        {
+            for (int i = 0; i < length; i++)
+            {
+                buf[i] = 0x00;
+            }
+            return buf;
         }
 
         private void lan_Server_OnConnected(object sender, EventArgs e)
@@ -175,10 +184,28 @@ namespace ORCA_Simulator_Wireless_Test_App
             // Optionally send a one-shot hello 64B frame
             var helloPayload = new byte[62];
             for (int i = 0; i < helloPayload.Length; i++) helloPayload[i] = (byte)i;
-            var frame = BuildRaw64Frame(helloPayload);
+            var frame = Build_Command_64bytes(helloPayload);
             lan_Server.Send(frame);
             // UI hint
             labelStatus.Text = "Connected";
+        }
+
+        private byte[] Build_Command_64bytes(byte[] buf)
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                int baseIndex = i * BATCH_SIZE;
+                buf[baseIndex] = RAW_HEADER;
+                byte sum = 0;
+                for (int j = 0; j < BATCH_SIZE - 1; j++)
+                {
+                    sum += buf[baseIndex + j];
+                }
+
+                buf[baseIndex + BATCH_SIZE - 1] = (byte)sum;
+            }
+
+            return buf;
         }
 
         private void lan_Server_OnDisconnected(object sender, EventArgs e)
@@ -208,13 +235,19 @@ namespace ORCA_Simulator_Wireless_Test_App
                 motor_sample.Motor_Position = GetInt32_LE(raw, baseIndex + 1);
 
                 motor_sample.Counter = GetInt16_LE(raw, baseIndex + 5);
-                Console.WriteLine($"Counter {motor_sample.Counter}");
+                received_counter = motor_sample.Counter;
 
                 motor_sample.Checksum = raw[baseIndex + BATCH_SIZE - 1];
 
                 _incoming_Batch[i] = motor_sample;
             }
+            if (Math.Abs(received_counter - received_counter_prev) > 1)
+            {
+                label_Log_Report.Text = $"Log: [Error] Counter issue on time {time_Sec}";
+            }
+
             _newBatchReady = true;
+            received_counter_prev = received_counter;
         }
 
         private Int32 GetInt32_LE(byte[] buf, int start)
@@ -238,24 +271,24 @@ namespace ORCA_Simulator_Wireless_Test_App
         // -----------------------------------------------
         // Build/send a PC->RPi command (64B RAW frame)
         // -----------------------------------------------
-        private byte[] BuildRaw64Frame(byte[] payload62)
-        {
-            if (payload62 == null) payload62 = new byte[0];
-            if (payload62.Length > 62) throw new ArgumentException("payload62 must be <= 62 bytes");
+        //private byte[] BuildRaw64Frame(byte[] payload62)
+        //{
+        //    if (payload62 == null) payload62 = new byte[0];
+        //    if (payload62.Length > 62) throw new ArgumentException("payload62 must be <= 62 bytes");
 
-            var frame = new byte[RAW_SIZE];
-            frame[0] = RAW_HEADER;
+        //    var frame = new byte[RAW_SIZE];
+        //    frame[0] = RAW_HEADER;
 
-            // copy payload; the rest remains 0
-            Array.Copy(payload62, 0, frame, 1, payload62.Length);
+        //    // copy payload; the rest remains 0
+        //    Array.Copy(payload62, 0, frame, 1, payload62.Length);
 
-            int sum = 0;
-            for (int i = 0; i < RAW_SIZE - 1; i++)
-                sum = (sum + frame[i]) & 0xFF;
+        //    int sum = 0;
+        //    for (int i = 0; i < RAW_SIZE - 1; i++)
+        //        sum = (sum + frame[i]) & 0xFF;
 
-            frame[RAW_SIZE - 1] = (byte)sum;
-            return frame;
-        }
+        //    frame[RAW_SIZE - 1] = (byte)sum;
+        //    return frame;
+        //}
 
         private bool VerifyChecksumAndHeader(byte[] buf, int baseIndex)
         {
@@ -276,19 +309,7 @@ namespace ORCA_Simulator_Wireless_Test_App
         // -----------------------------------------------
         // Example “Send command” (wire to a button)
         // -----------------------------------------------
-        private void btnSendCommand_Click(object sender, EventArgs e)
-        {
-            // Example payload: incrementing counter in bytes [1..4]
-            var payload = new byte[62];
-            payload[0] = (byte)((_counter >> 0) & 0xFF);
-            payload[1] = (byte)((_counter >> 8) & 0xFF);
-            payload[2] = (byte)((_counter >> 16) & 0xFF);
-            payload[3] = (byte)((_counter >> 24) & 0xFF);
-            _counter++;
 
-            var frame = BuildRaw64Frame(payload);
-            lan_Server.Send(frame);
-        }
 
         // -----------------------------------------------
         // File upload to RPi (:5002) — wire to a button
@@ -352,7 +373,7 @@ namespace ORCA_Simulator_Wireless_Test_App
             Int32 position = s.Motor_Position;
 
             // update UI labels
-            label_Time.Text = $"Time: {time_Sec:00.00} sec";
+            label_Time.Text = $"Time: {time_Sec:00.000} sec";
             label_Current_Motor_Position.Text = $"Motor Position: {position} pulses";
         }
 
@@ -369,6 +390,21 @@ namespace ORCA_Simulator_Wireless_Test_App
                 time_Sec += d_t;
 
                 Graph_Data();
+            }
+        }
+
+
+        private void button_Start_Stop_Click(object sender, EventArgs e)
+        {
+            if (button_Start_Stop.Text == "Start")
+            {
+                button_Start_Stop.Text = "Stop";
+                run_flag = true;
+            }
+            else
+            {
+                button_Start_Stop.Text = "Start";
+                run_flag = false;
             }
         }
     }

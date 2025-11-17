@@ -1,6 +1,7 @@
 # rpi/src/main.py
 #!/usr/bin/env python3
 import os, time, yaml, zlib
+from typing import Optional
 from common.logging_setup import setup_logging
 from common.framing import BATCH_SIZE, BATCH_COUNT   # 8, 128
 from lan.buffer_client import BufferClient
@@ -59,6 +60,10 @@ def main():
         cfg["paths"]["incoming_dir"]
     )
     files.start()
+    
+    def get_pc_tail() -> Optional[bytes]:
+        # 64 bytes or None
+        return net.copy_rx_frame_for_uart_tail()
 
     # --- Preload default motion frames into feeder ---
     default_txt = cfg["paths"].get("moving_window_txt",
@@ -69,13 +74,13 @@ def main():
         init_frames = []
 
     feeder = FrameOnUartRxFeeder(
-        uart=uart,
-        frames=init_frames,
-        verify_fn=verify_1024,      # this verifies RX if you expect 1024B from uC
-        loop_frames=True,
-        poll_sleep_s=0.001,
-        rx_qmax=cfg["timing"]["rx_queue_max"],
-        keepalive_when_empty=True   # <— enable keep-alive
+    uart=uart,
+    frames=None,                     # or initial 1024B patterns
+    verify_fn=verify_1024,
+    loop_frames=True,
+    keepalive_when_empty=True,
+    invalid_threshold=10,
+    pc_tail_provider=get_pc_tail     # <- last 64B from PC
     )
     feeder.start()
 

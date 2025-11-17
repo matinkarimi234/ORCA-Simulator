@@ -1,8 +1,13 @@
 # rpi/src/workers/frame_on_uart_rx.py
-import threading, time, queue, logging
+import threading
+import time
+import queue
+import logging
 from typing import List, Optional, Callable
+
 import RPi.GPIO as GPIO
-# NEW: use your framing constants so keep-alive matches verify_1024
+
+# Use your framing constants so keep-alive matches verify_1024
 from common.framing import BATCH_SIZE, BATCH_COUNT  # 8, 128
 
 tx_pin = 20
@@ -16,6 +21,7 @@ KEEPALIVE_HEADER = 0xFB  # must match your 1024B verify
 
 log = logging.getLogger("Rx")
 
+
 def build_keepalive_frame(counter: int) -> bytes:
     """
     Build a valid 1024B frame (BATCH_COUNT * BATCH_SIZE) with header+checksum per 8B batch.
@@ -27,7 +33,7 @@ def build_keepalive_frame(counter: int) -> bytes:
         base = i * BATCH_SIZE
         # 0: header
         buf[base + 0] = KEEPALIVE_HEADER
-        # 1..6: simple pattern (deterministic + changing with counter)
+        # 1..6: simple pattern (here all zeros; can be changed if needed)
         buf[base + 1] = 0
         buf[base + 2] = 0
         buf[base + 3] = 0
@@ -41,6 +47,7 @@ def build_keepalive_frame(counter: int) -> bytes:
         buf[base + 7] = s
     return bytes(buf)
 
+
 class FrameOnUartRxFeeder:
     def __init__(self,
                  uart,
@@ -50,7 +57,8 @@ class FrameOnUartRxFeeder:
                  poll_sleep_s: float = 0.001,
                  rx_qmax: int = 32,
                  keepalive_when_empty: bool = True,
-                 invalid_threshold: int = 10):
+                 invalid_threshold: int = 10,
+                 pc_tail_provider: Optional[Callable[[], Optional[bytes]]] = None):
         self.uart = uart
         self._frames = frames or []
         self._verify_fn = verify_fn
@@ -68,9 +76,13 @@ class FrameOnUartRxFeeder:
         # RX-from-uC buffer for the PC forwarder
         self._rx_queue: "queue.Queue[bytes]" = queue.Queue(maxsize=rx_qmax)
 
-        # --- NEW: invalid RX counter ---
+        # invalid RX counter
         self._invalid_count = 0
         self._invalid_threshold = invalid_threshold
+
+        # callback to fetch last 64B from PC (BufferClient)
+        self._pc_tail_provider = pc_tail_provider
+
     # ---------- lifecycle ----------
     def start(self):
         if self._thr and self._thr.is_alive():
@@ -107,11 +119,6 @@ class FrameOnUartRxFeeder:
             return self._next_frame()
         return frm
 
-        if self._verify_fn and frm is not None and not self._verify_fn(frm):
-            # Skip invalid and fetch the next one
-            return self._next_frame()
-        return frm
-
     def _push_rx_for_pc(self, rx: Optional[bytes]):
         # Treat empty bytes as "no frame"
         if not rx or len(rx) == 0:
@@ -140,7 +147,7 @@ class FrameOnUartRxFeeder:
             return frm
         except queue.Empty:
             return None
-        
+
     # ---------- main loop ----------
     def _pulse(self, pin: int, dur: float = 0.005):
         GPIO.output(pin, GPIO.HIGH)
@@ -152,9 +159,9 @@ class FrameOnUartRxFeeder:
         while not self._stop.is_set():
             rx = self.uart.get_rx_nowait()
             if rx:
-                # Optionally validate RX; if you expect 1024B here, keep verify_fn; otherwise skip
+                # validate RX; if you expect 1024B here, keep verify_fn; otherwise skip
                 if (self._verify_fn is None) or self._verify_fn(rx):
-                    # --- NEW: valid packet -> reset invalid counter ---
+                    # valid packet -> reset invalid counter
                     if self._invalid_count != 0:
                         log.debug("Valid Rx Packet -> reset invalid_count (was %d)", self._invalid_count)
                     self._invalid_count = 0
@@ -162,7 +169,7 @@ class FrameOnUartRxFeeder:
                     self._pulse(rx_pin)
                     self._push_rx_for_pc(rx)
 
-                    # choose next outbound
+                    # choose next outbound 1024B frame
                     if pending is None:
                         pending = self._next_frame()
                         if pending is None and self._keepalive_when_empty:
@@ -170,6 +177,20 @@ class FrameOnUartRxFeeder:
                             self._ka_counter = (self._ka_counter + 1) & 0xFFFFFFFF
 
                     if pending is not None:
+                        # -------- inject 64B from PC at the end of this 1024B frame --------
+                        try:
+                            if self._pc_tail_provider is not None:
+                                tail = self._pc_tail_provider()
+                                if tail is not None and len(tail) == 64:
+                                    # Overwrite last 64 bytes in the 1024B frame
+                                    tmp = bytearray(pending)
+                                    tmp[-64:] = tail
+                                    pending = bytes(tmp)
+                                # If tail is None or wrong length, just send pending as-is
+                        except Exception as e:
+                            log.exception("Error injecting PC tail into UART frame: %s", e)
+
+                        # --------------------------------------------------------------------
                         try:
                             self.uart.put_tx(pending)
                             self._pulse(tx_pin)
@@ -182,7 +203,7 @@ class FrameOnUartRxFeeder:
                     log.error("Invalid Rx Packet (%d/%d)",
                               self._invalid_count, self._invalid_threshold)
 
-                    # --- NEW: trigger reset after N invalid packets ---
+                    # trigger reset after N invalid packets
                     if self._invalid_count >= self._invalid_threshold:
                         log.warning("Too many invalid packets -> calling uart.request_reset()")
                         self._invalid_count = 0
@@ -191,13 +212,4 @@ class FrameOnUartRxFeeder:
                         except Exception as e:
                             log.exception("uart.request_reset() failed: %s", e)
 
-                    # RX was invalid; still consider sending keep-alive so uC doesn't reset
-                    if self._keepalive_when_empty:
-                        ka = build_keepalive_frame(self._ka_counter)
-                        self._ka_counter = (self._ka_counter + 1) & 0xFFFFFFFF
-                        try:
-                            self.uart.put_tx(ka)
-                            self._pulse(tx_pin)
-                        except Exception:
-                            pass
             time.sleep(self._poll_sleep_s)

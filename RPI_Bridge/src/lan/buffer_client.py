@@ -1,13 +1,17 @@
 # lan/buffer_client.py
-import socket, threading, time
+import socket
+import threading
+import time
 from typing import Optional, Callable
+
 from common.framing import RAW_SIZE, verify_raw64, BATCH_SIZE, BATCH_COUNT
+
 
 class BufferClient:
     """
     TCP client with:
       - RX: fixed-size frames from PC (default 64B -> RAW_SIZE) with optional verify_fn
-      - TX: fixed-size frames to PC (default 1024B -> BATCH_SIZE*BATCH_COUNT)
+      - TX: fixed-size frames to PC (default 1024B -> BATCH_SIZE * BATCH_COUNT)
 
     Backward-compatible helpers:
       - send_once(): sends the current Tx_Frame buffer
@@ -30,14 +34,19 @@ class BufferClient:
         self.server_port = int(server_port)
 
         # Sizes / verification
-        self.tx_frame_size = int(tx_frame_size) if tx_frame_size is not None else (BATCH_SIZE * BATCH_COUNT)  # 1024
-        self.rx_frame_size = int(rx_frame_size) if rx_frame_size is not None else RAW_SIZE                    # 64
+        # 1024B TX by default: 8-byte batches * 128 batches
+        self.tx_frame_size = int(tx_frame_size) if tx_frame_size is not None else (BATCH_SIZE * BATCH_COUNT)
+        # 64B RX by default
+        self.rx_frame_size = int(rx_frame_size) if rx_frame_size is not None else RAW_SIZE
         self.rx_verify_fn = rx_verify_fn or verify_raw64
 
         # Shared state buffers
         self.Rx_Frame = bytearray(b"\x00" * self.rx_frame_size)   # last good RX frame (from PC)
         self.Tx_Frame = bytearray(b"\x00" * self.tx_frame_size)   # buffer used by send_once()
         self.is_connected = 0
+
+        # Track if at least one valid RX frame has been received
+        self._has_valid_rx = False
 
         # Internals
         self._stop = threading.Event()
@@ -57,7 +66,7 @@ class BufferClient:
         try:
             if self._sock:
                 self._sock.close()
-        except:
+        except Exception:
             pass
 
     # ---------------- TX API ----------------
@@ -100,8 +109,23 @@ class BufferClient:
 
     # ---------------- RX helpers ----------------
     def copy_rx_frame(self) -> bytes:
-        """Thread-safe copy of the last received verified RX frame."""
+        """Thread-safe copy of the last received verified RX frame (may be zeros at startup)."""
         with self._lock:
+            return bytes(self.Rx_Frame)
+
+    def has_valid_rx(self) -> bool:
+        """True once at least one verified 64B frame has been received from PC."""
+        with self._lock:
+            return self._has_valid_rx
+
+    def copy_rx_frame_for_uart_tail(self) -> Optional[bytes]:
+        """
+        Helper specifically for the UART feeder:
+        Returns last valid 64B frame or None if we have not yet received a valid one.
+        """
+        with self._lock:
+            if not self._has_valid_rx:
+                return None
             return bytes(self.Rx_Frame)
 
     # ---------------- Internal loop ----------------
@@ -134,14 +158,14 @@ class BufferClient:
                     except Exception:
                         break
 
-                    # fixed-size RX framing
+                    # fixed-size RX framing (64B)
                     while len(rx_buf) >= self.rx_frame_size:
                         frame = bytes(rx_buf[:self.rx_frame_size])
                         del rx_buf[:self.rx_frame_size]
                         if (self.rx_verify_fn is None) or self.rx_verify_fn(frame):
                             with self._lock:
                                 self.Rx_Frame[:] = frame
-                            # Optional: silent on success; uncomment if needed:
+                                self._has_valid_rx = True
                             print("[BUF-CLIENT] RX verified")
                         else:
                             print("[BUF-CLIENT] RX failed verify")
@@ -154,7 +178,7 @@ class BufferClient:
                 try:
                     if self._sock:
                         self._sock.close()
-                except:
+                except Exception:
                     pass
                 self._sock = None
                 self.is_connected = 0
