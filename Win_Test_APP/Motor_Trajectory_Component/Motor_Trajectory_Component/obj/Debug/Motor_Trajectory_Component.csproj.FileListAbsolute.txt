@@ -1,0 +1,8 @@
+C:\Projects\ORCA Simulator\Win_Test_APP\Motor_Trajectory_Component\Motor_Trajectory_Component\bin\Debug\Motor_Trajectory_Component.dll
+C:\Projects\ORCA Simulator\Win_Test_APP\Motor_Trajectory_Component\Motor_Trajectory_Component\bin\Debug\Motor_Trajectory_Component.pdb
+C:\Projects\ORCA Simulator\Win_Test_APP\Motor_Trajectory_Component\Motor_Trajectory_Component\obj\Debug\Motor_Trajectory_Component.csproj.AssemblyReference.cache
+C:\Projects\ORCA Simulator\Win_Test_APP\Motor_Trajectory_Component\Motor_Trajectory_Component\obj\Debug\Motor_Trajectory_Component.Motor_Trajectory_Component.resources
+C:\Projects\ORCA Simulator\Win_Test_APP\Motor_Trajectory_Component\Motor_Trajectory_Component\obj\Debug\Motor_Trajectory_Component.csproj.GenerateResource.cache
+C:\Projects\ORCA Simulator\Win_Test_APP\Motor_Trajectory_Component\Motor_Trajectory_Component\obj\Debug\Motor_Trajectory_Component.csproj.CoreCompileInputs.cache
+C:\Projects\ORCA Simulator\Win_Test_APP\Motor_Trajectory_Component\Motor_Trajectory_Component\obj\Debug\Motor_Trajectory_Component.dll
+C:\Projects\ORCA Simulator\Win_Test_APP\Motor_Trajectory_Component\Motor_Trajectory_Component\obj\Debug\Motor_Trajectory_Component.pdb

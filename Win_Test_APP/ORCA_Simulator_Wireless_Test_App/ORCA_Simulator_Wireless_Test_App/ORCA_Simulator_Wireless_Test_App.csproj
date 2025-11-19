@@ -36,6 +36,9 @@
     <Reference Include="Farand_Chart_Lib_Ver3">
       <HintPath>..\..\Farand_Chart_Lib_Ver3\Farand_Chart_Lib_Ver3\bin\Debug\Farand_Chart_Lib_Ver3.dll</HintPath>
     </Reference>
+    <Reference Include="Motors_Trajectory_Wrapper_Component">
+      <HintPath>..\..\Motor_Trajectory_Component\Motors_Trajectory_Wrapper_Component\bin\Debug\Motors_Trajectory_Wrapper_Component.dll</HintPath>
+    </Reference>
     <Reference Include="Simple_Client_LAN_Control">
       <HintPath>..\..\Simple_Client_LAN_Control_Revised\Simple_Client_LAN_Control\bin\Debug\Simple_Client_LAN_Control.dll</HintPath>
     </Reference>

@@ -33,7 +33,7 @@ def verify_1024(frame: bytes) -> bool:
 
 def main():
     setup_logging("INFO")
-    cfg = yaml.safe_load(open("../config/app.yaml"))
+    cfg = yaml.safe_load(open("/home/boresight/ORCA-Simulator/RPI_Bridge/config/app.yaml"))
 
     # --- UART worker (single source of truth for RX/TX) ---
     uart = UartWorker(

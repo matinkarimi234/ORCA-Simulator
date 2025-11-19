@@ -161,13 +161,18 @@ namespace ORCA_Simulator_Wireless_Test_App
 
             try
             {
-                command_Bytes[1] = (byte)(run_flag ? 0x00 : 0x01);
+                Fill_Command_Bytes(); // Fill commands at the last 64 byte
 
                 var frame = Build_Command_64bytes(command_Bytes);
                 lan_Server.Send(frame); // non-blocking enqueue inside the control
             }
             catch { /* ignore one-shot errors */ }
             finally { _txTickBusy = false; }
+        }
+
+        private void Fill_Command_Bytes()
+        {
+            command_Bytes[1] = (byte)(run_flag ? 0x00 : 0x01);
         }
 
         private byte[] Clear_All_Buffers(byte[] buf, int length)
@@ -379,18 +384,22 @@ namespace ORCA_Simulator_Wireless_Test_App
 
         private void PushBatchToChart(Motor_Position_Sample[] frame)
         {
-            for (int i = 0; i < frame.Length; i++)
+            if (run_flag)
             {
-                Motor_Position_Sample s = frame[i];
+                for (int i = 0; i < frame.Length; i++)
+                {
+                    Motor_Position_Sample s = frame[i];
 
-                // assign globals so Graph_Data() can consume them
-                current_Motor_Position = s.Motor_Position;
+                    // assign globals so Graph_Data() can consume them
+                    current_Motor_Position = s.Motor_Position;
 
-                // each sub-sample is 25 ms apart
-                time_Sec += d_t;
+                    // each sub-sample is 25 ms apart
+                    time_Sec += d_t;
 
-                Graph_Data();
+                    Graph_Data();
+                }
             }
+
         }
 
 
@@ -406,6 +415,11 @@ namespace ORCA_Simulator_Wireless_Test_App
                 button_Start_Stop.Text = "Start";
                 run_flag = false;
             }
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+
         }
     }
 }
